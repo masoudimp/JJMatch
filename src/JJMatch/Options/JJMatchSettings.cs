@@ -39,10 +39,10 @@ public sealed class JJMatchSettings
     }
 
     /// <summary>
-    /// Maximum container depth of each parsed document, at least 1, with no upper bound. Defaults to 64. The comparison
+    /// Maximum container depth of each parsed document, at least 1, with no upper bound. Defaults to 512. The comparison
     /// recurses once per level, so a very deep document can overflow the stack when the depth allows it.
     /// </summary>
-    public int MaxDepth { get; set; } = 64;
+    public int MaxDepth { get; set; } = 512;
 
     /// <summary>Maximum UTF-16 length of each input, including any decoded document. Defaults to 1,000,000.</summary>
     public int MaxInputLength { get; set; } = 1_000_000;

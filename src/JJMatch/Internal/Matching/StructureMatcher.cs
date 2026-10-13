@@ -106,7 +106,16 @@ internal static class StructureMatcher
                 // a reported pair is compared once and would only fill it.
                 if (rules.CompareValues && !ValueMatcher.MatchValues(left, right, rules.Values, rules.Budget, differences is null ? rules.Cache : null, rules.FuzzyThreshold))
                 {
-                    differences?.Add(new StructureDifference(StructureMismatchType.ValueMismatch, FormatPath(path), left, right));
+                    if (differences is not null)
+                    {
+                        // Two strings that fold to equal under Normalized (case, outer white space or Unicode form
+                        // only), but the configured rules did not already accept them, report a lighter
+                        // ValueCaseMismatch instead of a full ValueMismatch. The pair stays unmatched either way.
+                        var mismatchType = ValueMatcher.MatchNormalized(left, right, rules.Cache)
+                            ? StructureMismatchType.ValueCaseMismatch
+                            : StructureMismatchType.ValueMismatch;
+                        differences.Add(new StructureDifference(mismatchType, FormatPath(path), left, right));
+                    }
                     return 0;
                 }
                 return 1;
@@ -118,7 +127,9 @@ internal static class StructureMatcher
         node.ValueKind == JsonValueKind.False ? JsonValueKind.True : node.ValueKind;
 
     // Properties are paired by name in any order, under the name rule, and so are the properties sharing a name:
-    // see PairSameName. An unpaired subtree is one difference at its top.
+    // see PairSameName. An unpaired subtree is one difference at its top. A left and a right orphan whose names
+    // fold to one key under Normalized, with neither side holding the other's exact name, pair as one lighter
+    // PropertyNameCaseMismatch instead of a full MissingProperty and a full ExtraProperty.
     private static int CompareProperties(
         JsonStructureNode left,
         JsonStructureNode right,
@@ -146,8 +157,41 @@ internal static class StructureMatcher
             path.RemoveAt(path.Count - 1);
         }
 
-        var matchedCount = 0;
         var pairedRight = new bool[right.Children.Count];
+        foreach (var partner in partners)
+        {
+            if (partner.Right >= 0) pairedRight[partner.Right] = true;
+        }
+
+        // Orphans on each side (no exact-name partner and no exact-name counterpart at all on the other side)
+        // that fold to the same key under Normalized are paired by that key, earliest left with earliest right.
+        var caseMatchRight = new int[left.Children.Count];
+        for (var index = 0; index < caseMatchRight.Length; index++) caseMatchRight[index] = -1;
+        var rightOrphansByKey = new Dictionary<string, Queue<int>>(NameComparer(JJPropertyNameMatchingMode.Normalized));
+        for (var index = 0; index < right.Children.Count; index++)
+        {
+            var property = right.Children[index];
+            if (pairedRight[index] || leftNames.Contains(property.PropertyName!)) continue;
+            var key = NameKey(property.PropertyName!, JJPropertyNameMatchingMode.Normalized);
+            if (!rightOrphansByKey.TryGetValue(key, out var queue))
+            {
+                queue = new Queue<int>();
+                rightOrphansByKey[key] = queue;
+            }
+            queue.Enqueue(index);
+        }
+        for (var index = 0; index < left.Children.Count; index++)
+        {
+            var property = left.Children[index];
+            if (partners[index].Right >= 0 || rightNames.Contains(property.PropertyName!)) continue;
+            var key = NameKey(property.PropertyName!, JJPropertyNameMatchingMode.Normalized);
+            if (rightOrphansByKey.TryGetValue(key, out var queue) && queue.Count > 0)
+            {
+                caseMatchRight[index] = queue.Dequeue();
+            }
+        }
+
+        var matchedCount = 0;
         for (var index = 0; index < left.Children.Count; index++)
         {
             var property = left.Children[index];
@@ -155,14 +199,21 @@ internal static class StructureMatcher
             var partner = partners[index];
             if (partner.Right < 0)
             {
-                var mismatchType = rightNames.Contains(property.PropertyName!)
-                    ? StructureMismatchType.DuplicatePropertyCountMismatch
-                    : StructureMismatchType.MissingProperty;
-                differences?.Add(new StructureDifference(mismatchType, FormatPath(path), property, null));
+                if (caseMatchRight[index] >= 0)
+                {
+                    pairedRight[caseMatchRight[index]] = true;
+                    differences?.Add(new StructureDifference(StructureMismatchType.PropertyNameCaseMismatch, FormatPath(path), property, right.Children[caseMatchRight[index]]));
+                }
+                else
+                {
+                    var mismatchType = rightNames.Contains(property.PropertyName!)
+                        ? StructureMismatchType.DuplicatePropertyCountMismatch
+                        : StructureMismatchType.MissingProperty;
+                    differences?.Add(new StructureDifference(mismatchType, FormatPath(path), property, null));
+                }
             }
             else
             {
-                pairedRight[partner.Right] = true;
                 matchedCount += differences is null && partner.MatchedCount >= 0
                     ? partner.MatchedCount
                     : Compare(property, right.Children[partner.Right], path, differences, rules);

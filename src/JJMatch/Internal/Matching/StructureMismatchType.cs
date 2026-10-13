@@ -22,5 +22,11 @@ internal enum StructureMismatchType
     DuplicatePropertyCountMismatch,
 
     /// <summary>Paired primitives fail the selected value rules.</summary>
-    ValueMismatch
+    ValueMismatch,
+
+    /// <summary>Both objects have a property whose name folds to the same key under <see cref="JJPropertyNameMatchingMode.Normalized"/>, but the exact spelling differs; neither side has the other's exact name.</summary>
+    PropertyNameCaseMismatch,
+
+    /// <summary>Paired primitives fail the selected value rules, but both are strings whose normalized texts are equal ignoring case.</summary>
+    ValueCaseMismatch
 }

@@ -52,7 +52,7 @@ Nodes are immutable: every property is set by the constructor and has no setter.
 - A lone surrogate in a name or a value is a legitimate, distinct string in the tree, but it is not valid Unicode text: anything that transcodes it (writing it to UTF-8, for instance) will replace or reject it. Matching treats it as an ordinary name; a path writes it as its `\u` escape.
 - The tree is a copy. It holds one object per JSON value, one string per property name occurrence and one per string or number value, so it uses several times the memory of the UTF-8 text: about 50 to 55 KB for each fixture of 5.5 to 5.9 KB (see Benchmarks). The `JsonDocument` can be disposed as soon as `Traverse` returns.
 - Child lists are not trimmed and property names are not pooled. Both were measured and left out; see `Docs/Decisions.md`.
-- Recursion depth follows the document's nesting depth: one stack frame per object or array level. `Traverse` has no depth limit or guard of its own. The parser's default `MaxDepth` of 64 is the practical limit; see `Docs/Decisions.md` for what happens when a caller raises it.
+- Recursion depth follows the document's nesting depth: one stack frame per object or array level. `Traverse` has no depth limit or guard of its own. Through `JJMatcher` the limit is `JJMatchSettings.MaxDepth`, 512 by default; internal callers that parse for themselves get the parser's default of 64. See `Docs/Decisions.md` for what happens when a caller raises it.
 - Duplicate keys reach `Traverse` only because `JsonDocument.Parse` allows them by default.
 - Numbers are not validated or interpreted beyond what the parser accepted.
 

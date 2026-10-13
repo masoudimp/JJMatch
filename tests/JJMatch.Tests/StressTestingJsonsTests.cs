@@ -15,7 +15,7 @@ namespace JJMatch.Tests;
 // implements, on the matcher itself.
 public class StressTestingJsonsTests
 {
-    // The deepArray section is 100 levels deep, above the parser's default MaxDepth of 64 that the library relies on.
+    // The deepArray section is 100 levels deep, above the parser's default MaxDepth of 64.
     private static readonly JsonDocumentOptions Options = new() { MaxDepth = 128 };
 
     private static readonly JsonElement Left = Load("Left.json");
@@ -106,9 +106,8 @@ public class StressTestingJsonsTests
         Assert.Equal(
             [
                 (StructureMismatchType.TypeMismatch, "$.numbers.zero"),
-                (StructureMismatchType.MissingProperty, "$.numbers.uint64Max"),
+                (StructureMismatchType.PropertyNameCaseMismatch, "$.numbers.uint64Max"),
                 (StructureMismatchType.TypeMismatch, "$.numbers.int32Max"),
-                (StructureMismatchType.ExtraProperty, "$.numbers.UInt64Max"),
                 (StructureMismatchType.MissingProperty, "$.strings.delete"),
                 (StructureMismatchType.TypeMismatch, "$.keys.__proto__.polluted"),
                 (StructureMismatchType.DuplicatePropertyCountMismatch, "$.duplicates.interleaved.a"),
@@ -538,19 +537,19 @@ public class StressTestingJsonsTests
         Assert.Equal(
             [
                 (StructureMismatchType.TypeMismatch, "$.zero"),
-                (StructureMismatchType.MissingProperty, "$.uint64Max"),
+                (StructureMismatchType.PropertyNameCaseMismatch, "$.uint64Max"),
                 (StructureMismatchType.TypeMismatch, "$.int32Max"),
-                (StructureMismatchType.ExtraProperty, "$.UInt64Max"),
             ],
             Differences(result));
 
         // 0 against false: a Number against a Boolean.
         Assert.Equal((JsonValueKind.Number, JsonValueKind.False), (result.Differences[0].Left!.ValueKind, result.Differences[0].Right!.ValueKind));
 
-        // Names are compared case-sensitively, so the rename is a missing and an extra property with equal values.
+        // The rename folds to one key under Normalized even though names are otherwise compared case-sensitively,
+        // so it is one lighter PropertyNameCaseMismatch instead of a missing and an extra property.
         Assert.Same(Child(left, "uint64Max"), result.Differences[1].Left);
-        Assert.Same(Child(right, "UInt64Max"), result.Differences[3].Right);
-        Assert.Equal(result.Differences[1].Left!.Value, result.Differences[3].Right!.Value);
+        Assert.Same(Child(right, "UInt64Max"), result.Differences[1].Right);
+        Assert.Equal(result.Differences[1].Left!.Value, result.Differences[1].Right!.Value);
 
         // The root and 41 properties, less zero, uint64Max and int32Max.
         Assert.Equal(39, result.MatchedCount);
