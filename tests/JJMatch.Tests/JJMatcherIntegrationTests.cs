@@ -26,8 +26,8 @@ public class JJMatcherIntegrationTests
         Assert.Equal(200d * matchedNodes / (2 * effectiveNodesPerSide), result.Score);
         Assert.Equal(valueDifferences + 2, result.Differences.Count);
         Assert.Equal(valueDifferences, result.Differences.Count(d => d.Kind == JJDifferenceKind.ValueMismatch));
-        Assert.Equal("$.legacyCode", Assert.Single(result.Differences.Where(d => d.Kind == JJDifferenceKind.Missing)).Path);
-        Assert.Equal("$.coupon", Assert.Single(result.Differences.Where(d => d.Kind == JJDifferenceKind.Added)).Path);
+        Assert.Equal("$.legacyCode", Assert.Single(result.Differences, d => d.Kind == JJDifferenceKind.Missing).Path);
+        Assert.Equal("$.coupon", Assert.Single(result.Differences, d => d.Kind == JJDifferenceKind.Added).Path);
         Assert.Equal(result.Score, JJMatcher.Match(right, left, options, settings).Score);
     }
 
