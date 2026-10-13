@@ -2,6 +2,9 @@
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/JJMatch.Benchmarks/JJMatch.Benchmarks.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/JJMatch.Playground/JJMatch.Playground.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/JJMatch/JJMatch.csproj" />
   </Folder>

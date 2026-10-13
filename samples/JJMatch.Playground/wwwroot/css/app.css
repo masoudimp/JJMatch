@@ -1,0 +1,104 @@
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0 auto;
+    max-width: 72rem;
+    padding: 1rem;
+    line-height: 1.4;
+}
+
+.loading {
+    color: #666;
+}
+
+.inputs {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr 1fr;
+}
+
+.inputs label {
+    display: flex;
+    flex-direction: column;
+    font-weight: 600;
+}
+
+.inputs textarea {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9rem;
+    font-weight: 400;
+    min-height: 18rem;
+    margin-top: 0.25rem;
+    padding: 0.5rem;
+    resize: vertical;
+}
+
+button {
+    font-size: 1rem;
+    margin: 1rem 0;
+    padding: 0.5rem 1.5rem;
+}
+
+.error {
+    color: #b00020;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+}
+
+.summary {
+    display: grid;
+    gap: 0.25rem 1rem;
+    grid-template-columns: max-content 1fr;
+}
+
+.summary dt {
+    font-weight: 600;
+}
+
+.summary dd {
+    margin: 0;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td {
+    border-bottom: 1px solid #ddd;
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+td {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+@media (max-width: 48rem) {
+    .inputs {
+        grid-template-columns: 1fr;
+    }
+}
+
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
