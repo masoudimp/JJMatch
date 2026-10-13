@@ -3,30 +3,35 @@ using System.Text.Json;
 namespace JJMatch;
 
 // Per-call memo shared by CountNodes and every Match of one comparison. It gives each indexed subtree an exact
-// identity under the array mode: two subtrees have the same identity exactly when Compare finds no difference
-// between them, so such a pair is matched whole without being walked. Identities are interned canonical keys,
+// identity under the array and name modes: two subtrees have the same identity exactly when Compare finds no
+// difference between them, so such a pair is matched whole without being walked. Identities are interned canonical keys,
 // never hashes, so equal identities are a proof and unequal ones only mean the pair must be compared. Nothing is
 // indexed until a group is assigned or distinct shapes are needed, so a document without groups costs nothing here.
 internal sealed class ComparisonCache
 {
     private readonly JJArrayMatchingMode _arrays;
     private readonly JJValueMatchingMode _values;
+    private readonly JJPropertyNameMatchingMode _nameMode;
     private readonly ComparisonBudget? _budget;
     private readonly Dictionary<JsonStructureNode, Entry> _entries = new Dictionary<JsonStructureNode, Entry>();
     private readonly Dictionary<JsonStructureNode, StructureMatcher.NameIndex> _names = new Dictionary<JsonStructureNode, StructureMatcher.NameIndex>();
     private readonly Dictionary<Key, int> _identities = new Dictionary<Key, int>();
     private readonly Dictionary<string, int> _texts = new Dictionary<string, int>(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _nameTexts;
     private readonly Dictionary<JsonStructureNode, string> _normalized = new Dictionary<JsonStructureNode, string>();
     private readonly Dictionary<JsonStructureNode, string> _folded = new Dictionary<JsonStructureNode, string>();
     private readonly int[] _primitiveShapes = new int[8]; // By JsonValueKind, whose last member is Null = 7.
     private readonly int[]?[] _rows = new int[3][];
     private int _unique;
 
-    internal ComparisonCache(JJArrayMatchingMode arrays, JJValueMatchingMode values, ComparisonBudget? budget)
+    internal ComparisonCache(JJArrayMatchingMode arrays, JJValueMatchingMode values, ComparisonBudget? budget,
+        JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.Exact)
     {
         _arrays = arrays;
         _values = values;
+        _nameMode = nameMode;
         _budget = budget;
+        _nameTexts = new Dictionary<string, int>(StructureMatcher.NameComparer(nameMode));
     }
 
     // Shape ignores primitive values; Valued includes those a selected value rule accepts as identical to
@@ -70,7 +75,7 @@ internal sealed class ComparisonCache
         {
             return names;
         }
-        names = new StructureMatcher.NameIndex(node);
+        names = new StructureMatcher.NameIndex(node, _nameMode);
         if (_entries.ContainsKey(node)) _names.Add(node, names);
         return names;
     }
@@ -140,8 +145,9 @@ internal sealed class ComparisonCache
     private const int PrimitiveShape = 1, PrimitiveValue = 2, ObjectShape = 3, ObjectValue = 4, ArrayKey = 5;
 
     // Properties as (name, identity) pairs sorted by name, then shape, then valued identity, so the order of
-    // properties sharing a name plays no part. One order serves both keys: equal valued identities have equal
-    // shapes, so it is canonical for each.
+    // properties sharing a name plays no part. Names are interned under the name rule, so two objects whose names
+    // differ only as that rule allows have one identity. One order serves both keys: equal valued identities have
+    // equal shapes, so it is canonical for each.
     private Entry IndexObject(JsonStructureNode node, bool shapesOnly)
     {
         var count = node.Children.Count;
@@ -152,7 +158,7 @@ internal sealed class ComparisonCache
             var property = node.Children[index];
             var child = Index(property, shapesOnly);
             size += child.Size;
-            children[index] = (Text(property.PropertyName!), child.Shape, child.Valued);
+            children[index] = (NameText(property.PropertyName!), child.Shape, child.Valued);
         }
 
         Array.Sort(children, (a, b) =>
@@ -256,6 +262,17 @@ internal sealed class ComparisonCache
         if (!_texts.TryGetValue(text, out var identity))
         {
             _texts.Add(text, identity = _texts.Count);
+        }
+        return identity;
+    }
+
+    // Names have their own table, compared under the name rule; values stay ordinal. A key never mixes the two.
+    private int NameText(string name)
+    {
+        var key = StructureMatcher.NameKey(name, _nameMode);
+        if (!_nameTexts.TryGetValue(key, out var identity))
+        {
+            _nameTexts.Add(key, identity = _nameTexts.Count);
         }
         return identity;
     }

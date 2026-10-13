@@ -10,7 +10,7 @@ public static class JJMatcher
     /// <param name="json1">The left JSON document. Any valid JSON root is accepted.</param>
     /// <param name="json2">The right JSON document.</param>
     /// <param name="options">Use StructuralMatching to ignore primitive values; null or All compares structure and values.</param>
-    /// <param name="settings">Optional array/value rules and resource limits. Defaults to Strict arrays and Exact values.</param>
+    /// <param name="settings">Optional array, value and property name rules and resource limits. Defaults to Strict arrays, Exact values and Exact names.</param>
     /// <param name="cancellationToken">Cancels comparison cooperatively.</param>
     /// <exception cref="ArgumentNullException">An input is null.</exception>
     /// <exception cref="ArgumentException">Options or settings are invalid.</exception>
@@ -37,17 +37,17 @@ public static class JJMatcher
         using var rightDocument = Parse(json2, config, budget);
         var left = JsonStructureTraverser.Traverse(leftDocument.RootElement, budget: budget);
         var right = JsonStructureTraverser.Traverse(rightDocument.RootElement, budget: budget);
-        var cache = new ComparisonCache(config.ArrayMode, config.ValueMode, budget);
+        var cache = new ComparisonCache(config.ArrayMode, config.ValueMode, budget, config.PropertyNameMode);
         var total = StructureMatcher.CountNodes(left, config.ArrayMode, budget, cache)
             + StructureMatcher.CountNodes(right, config.ArrayMode, budget, cache);
-        var match = StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, compareValues, budget, cache);
+        var match = StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, compareValues, budget, cache, config.PropertyNameMode, config.FuzzyThreshold);
         var score = Dice(match.MatchedCount, total);
         double? structuralScore = null;
         if (structuralDiagnostics)
         {
             // A value-aware full match is a structural full match too, and a structural count cannot exceed the total.
             structuralScore = compareValues && match.Differences.Count != 0
-                ? Dice(StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, false, budget, cache).MatchedCount, total)
+                ? Dice(StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, false, budget, cache, config.PropertyNameMode).MatchedCount, total)
                 : score;
         }
 

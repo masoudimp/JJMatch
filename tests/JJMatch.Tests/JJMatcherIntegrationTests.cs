@@ -315,6 +315,89 @@ public class JJMatcherIntegrationTests
     }
 
     [Fact]
+    public void Fuzzy_threshold_setting_overrides_the_default_similarity()
+    {
+        Assert.Equal(0.8, new JJMatchSettings().FuzzyThreshold);
+        var fuzzy = new JJMatchSettings { ValueMode = JJValueMatchingMode.Fuzzy };
+        // "Jon" against "John" is a similarity of 0.75, under the default; "Smith" against "Smyth" is exactly 0.8.
+        var shortName = (Core("Left", "fuzzyValues", "shortName"), Core("Right", "fuzzyValues", "shortName"));
+        var boundary = (Core("Left", "fuzzyValues", "boundary"), Core("Right", "fuzzyValues", "boundary"));
+        Assert.False(JJMatcher.Match(shortName.Item1, shortName.Item2, settings: fuzzy).IsMatch);
+        Assert.True(JJMatcher.Match(boundary.Item1, boundary.Item2, settings: fuzzy).IsMatch);
+
+        var relaxed = new JJMatchSettings { ValueMode = JJValueMatchingMode.Fuzzy, FuzzyThreshold = 0.75 };
+        var result = JJMatcher.Match(shortName.Item1, shortName.Item2, settings: relaxed);
+        Consistent(result);
+        Assert.True(result.IsMatch);
+
+        var strict = new JJMatchSettings { ValueMode = JJValueMatchingMode.Fuzzy, FuzzyThreshold = 0.81 };
+        Assert.False(JJMatcher.Match(boundary.Item1, boundary.Item2, settings: strict).IsMatch);
+        // At 1 Fuzzy accepts only what Normalized accepts; the setting plays no part without the Fuzzy rule.
+        Assert.False(JJMatcher.Match(boundary.Item1, boundary.Item2, settings: new JJMatchSettings { ValueMode = JJValueMatchingMode.Fuzzy, FuzzyThreshold = 1 }).IsMatch);
+        Assert.False(JJMatcher.Match(shortName.Item1, shortName.Item2, settings: new JJMatchSettings { FuzzyThreshold = 0 }).IsMatch);
+    }
+
+    [Fact]
+    public void Normalized_names_pair_properties_that_differ_in_case_padding_or_unicode_form()
+    {
+        Assert.Equal(JJPropertyNameMatchingMode.Exact, new JJMatchSettings().PropertyNameMode);
+        var left = Input("Left", "propertyNames");
+        var right = Input("Right", "propertyNames");
+        // Ten nodes on each side. Under Exact names only the root, the array and its two element objects pair.
+        var exact = JJMatcher.Match(left, right);
+        Consistent(exact);
+        Assert.Equal(40, exact.Score);
+        Assert.Equal(12, exact.Differences.Count);
+        Assert.All(exact.Differences, d => Assert.NotEqual(JJDifferenceKind.ValueMismatch, d.Kind));
+
+        // id/ID, name/" Name ", café in both Unicode forms and the two skus pair; postalCode and postal_code do not.
+        var settings = new JJMatchSettings { PropertyNameMode = JJPropertyNameMatchingMode.Normalized };
+        var normalized = JJMatcher.Match(left, right, settings: settings);
+        Consistent(normalized);
+        Assert.Equal(90, normalized.Score);
+        Assert.Equal(90, normalized.StructuralMatchPercentage);
+        Assert.Equal(new[] { (JJDifferenceKind.Missing, "$.postalCode"), (JJDifferenceKind.Added, "$.postal_code") },
+            normalized.Differences.Select(d => (d.Kind, d.Path)));
+        Assert.Equal(normalized.Score, JJMatcher.Match(right, left, settings: settings).Score);
+        Assert.Equal(90, JJMatcher.Match(left, right, JJMatchOptions.StructuralMatching, settings).Score);
+
+        // Under StructureOnly the two element objects of each side are one shape once their names fold together;
+        // under Exact names they are two shapes on each side, and only the two spelled "sku" can be paired.
+        var leftItems = Fixture("Left").GetProperty("publicApi").GetProperty("propertyNames").GetProperty("items").GetRawText();
+        var rightItems = Fixture("Right").GetProperty("publicApi").GetProperty("propertyNames").GetProperty("items").GetRawText();
+        var shapes = JJMatcher.Match(leftItems, rightItems,
+            settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.StructureOnly, PropertyNameMode = JJPropertyNameMatchingMode.Normalized });
+        Consistent(shapes);
+        Assert.True(shapes.IsMatch);
+        var exactShapes = JJMatcher.Match(leftItems, rightItems, settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.StructureOnly });
+        Assert.Equal(60, exactShapes.Score); // The arrays and the "sku" shape: three of five effective nodes on each side.
+        Assert.Equal(new[] { JJDifferenceKind.Missing, JJDifferenceKind.Added }, exactShapes.Differences.Select(d => d.Kind));
+    }
+
+    [Fact]
+    public void Normalized_names_make_case_variants_one_duplicate_group_and_keep_original_spellings_in_paths()
+    {
+        var variants = Fixture("Left").GetProperty("core").GetProperty("caseVariants").GetRawText();
+        var settings = new JJMatchSettings { PropertyNameMode = JJPropertyNameMatchingMode.Normalized };
+        Assert.True(JJMatcher.Match(variants, variants, settings: settings).IsMatch);
+
+        // { name: 1, Name: 2, NAME: { name: 3 } } against { name: "Ann", age: 30 }: three occurrences of one name
+        // against one. No candidate pair matches a node, so the first left occurrence takes the only partner and
+        // the other two are surplus, reported under their own spelling without an occurrence suffix.
+        var result = JJMatcher.Match(variants, Input("Left", "basic"), JJMatchOptions.StructuralMatching, settings);
+        Consistent(result);
+        Assert.Equal(25, result.Score); // Only the roots match: one of five plus three nodes.
+        Assert.Equal(new (JJDifferenceKind Kind, string? LeftPath, string? RightPath)[]
+            {
+                (JJDifferenceKind.TypeMismatch, "$.name", "$.name"),
+                (JJDifferenceKind.Missing, "$.Name", null),
+                (JJDifferenceKind.Missing, "$.NAME", null),
+                (JJDifferenceKind.Added, null, "$.age"),
+            },
+            result.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath)));
+    }
+
+    [Fact]
     public void Unordered_fuzzy_arrays_use_a_bijection_not_transitive_grouping()
     {
         var result = JJMatcher.Match(Input("Left", "fuzzyAssignment"), Input("Right", "fuzzyAssignment"),
@@ -341,6 +424,68 @@ public class JJMatcherIntegrationTests
         var loneSurrogate = Fixture("Left").GetProperty("core").GetProperty("loneSurrogates").GetProperty("values")[0].GetRawText();
         Assert.True(JJMatcher.Match(loneSurrogate, loneSurrogate).IsMatch);
         Assert.Equal(JJDifferenceKind.TypeMismatch, Assert.Single(JJMatcher.Match(loneSurrogate, json, settings: settings).Differences).Kind);
+        // Only objects and arrays are decoded: the text of a number stays a string against the number itself.
+        var normalized = Fixture("Left").GetProperty("core").GetProperty("normalizedValues");
+        var numberText = JJMatcher.Match(normalized.GetProperty("numberText").GetRawText(), normalized.GetProperty("numberValue").GetRawText());
+        Assert.Equal(JJDifferenceKind.TypeMismatch, Assert.Single(numberText.Differences).Kind);
+        // Decoding is not normalization: the decoded fixtures report what the plain fixtures report.
+        var rightText = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", "Stringified", "RightStringify.txt"));
+        var plain = JJMatcher.Match(json, File.ReadAllText(Path.Combine(TestDataDirectory, "Right.json")), settings: settings);
+        var decoded = JJMatcher.Match(text, rightText, settings: settings);
+        Assert.Equal(plain.Score, decoded.Score);
+        Assert.Equal(plain.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath)), decoded.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath)));
+        // Content deeper than MaxDepth does not parse, so the string stays literal instead of throwing.
+        Assert.True(JJMatcher.Match(text, text).IsMatch);
+        Assert.Equal(JJDifferenceKind.ValueMismatch, Assert.Single(JJMatcher.Match(text, rightText).Differences).Kind);
+    }
+
+    [Theory]
+    [InlineData("No real difference: property order", JJArrayMatchingMode.Strict, true)]
+    [InlineData("Array order: elements reversed", JJArrayMatchingMode.Strict, false)]
+    [InlineData("Array order: elements reversed", JJArrayMatchingMode.Unordered, true)]
+    public void Stringified_root_from_the_change_catalogue_is_compared_as_the_document_it_holds(
+        string category, JJArrayMatchingMode arrayMode, bool expectedMatch)
+    {
+        // The catalogue strings hold a complete JSON object or array. As literal strings none of these pairs is equal;
+        // decoded, they follow the object and array rules of the selected mode.
+        var settings = new JJMatchSettings { ArrayMode = arrayMode };
+        foreach (var (inA, inB) in Catalogue(category))
+        {
+            var result = JJMatcher.Match(inA, inB, settings: settings);
+            Consistent(result);
+            Assert.Equal(expectedMatch, result.IsMatch);
+            Assert.Equal(expectedMatch, JJMatcher.Match(inB, inA, settings: settings).IsMatch);
+            if (!expectedMatch) Assert.All(result.Differences, d => Assert.NotEqual("$", d.LeftPath ?? d.RightPath));
+        }
+    }
+
+    [Fact]
+    public void Stringified_root_that_does_not_parse_stays_a_literal_string()
+    {
+        // These catalogue excerpts are not complete JSON, although two start with '[' or '{': compared as strings,
+        // each matches itself and differs from its pair at the root, and nothing throws.
+        foreach (var category in new[] { "Structure: array shorter", "Array order: primitives reordered", "Array order: objects swapped" })
+        {
+            foreach (var (inA, inB) in Catalogue(category))
+            {
+                Assert.True(JJMatcher.Match(inA, inA).IsMatch);
+                var difference = Assert.Single(JJMatcher.Match(inA, inB).Differences);
+                Assert.Equal(JJDifferenceKind.ValueMismatch, difference.Kind);
+                Assert.Equal("$", difference.LeftPath);
+            }
+        }
+    }
+
+    // The raw JSON text of the two strings of every stressChanges entry with the given category. The strings are
+    // passed as they are stored, so each is a JSON document whose root is a string.
+    private static List<(string InA, string InB)> Catalogue(string category)
+    {
+        var pairs = Fixture("Left").GetProperty("stressChanges").EnumerateArray()
+            .Where(e => e.GetProperty("category").GetString() == category)
+            .Select(e => (e.GetProperty("inA").GetRawText(), e.GetProperty("inB").GetRawText()))
+            .ToList();
+        Assert.NotEmpty(pairs);
+        return pairs;
     }
 
     [Fact]
@@ -355,6 +500,10 @@ public class JJMatcherIntegrationTests
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, (JJMatchOptions)128));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { ValueMode = (JJValueMatchingMode)16 }));
         Assert.Throws<ArgumentException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { ValueMode = JJValueMatchingMode.None }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { PropertyNameMode = (JJPropertyNameMatchingMode)2 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = -0.1 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = 1.1 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = double.NaN }));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 129 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { ArrayMode = (JJArrayMatchingMode)9 }));
         Assert.Throws<InvalidOperationException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxInputLength = 1 }));
@@ -374,25 +523,28 @@ public class JJMatcherIntegrationTests
     {
         foreach (var mode in Enum.GetValues<JJArrayMatchingMode>())
         {
-            var settings = new JJMatchSettings { ArrayMode = mode };
-            foreach (var name in new[] { "basic", "nested", "arrayValues", "arrayObjects", "surplus", "duplicates", "shapeValues" })
+            foreach (var nameMode in Enum.GetValues<JJPropertyNameMatchingMode>())
             {
-                var left = Input("Left", name);
-                var right = Input("Right", name);
-                foreach (var options in new[] { JJMatchOptions.All, JJMatchOptions.StructuralMatching, JJMatchOptions.ValueMatching,
-                    JJMatchOptions.StructuralMatching | JJMatchOptions.ValueMatching })
+                var settings = new JJMatchSettings { ArrayMode = mode, PropertyNameMode = nameMode };
+                foreach (var name in new[] { "basic", "nested", "arrayValues", "arrayObjects", "surplus", "duplicates", "shapeValues", "propertyNames" })
                 {
-                    var result = JJMatcher.Match(left, right, options, settings);
-                    var reverse = JJMatcher.Match(right, left, options, settings);
-                    var repeated = JJMatcher.Match(left, right, options, settings);
-                    Consistent(result);
-                    Consistent(reverse);
-                    Assert.Equal(result.Score, reverse.Score);
-                    Assert.Equal(result.IsMatch, reverse.IsMatch);
-                    Assert.Equal(result.StructuralMatchPercentage, reverse.StructuralMatchPercentage);
-                    Assert.Equal(result.Score, repeated.Score);
-                    Assert.Equal(result.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath)),
-                        repeated.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath)));
+                    var left = Input("Left", name);
+                    var right = Input("Right", name);
+                    foreach (var options in new[] { JJMatchOptions.All, JJMatchOptions.StructuralMatching, JJMatchOptions.ValueMatching,
+                        JJMatchOptions.StructuralMatching | JJMatchOptions.ValueMatching })
+                    {
+                        var result = JJMatcher.Match(left, right, options, settings);
+                        var reverse = JJMatcher.Match(right, left, options, settings);
+                        var repeated = JJMatcher.Match(left, right, options, settings);
+                        Consistent(result);
+                        Consistent(reverse);
+                        Assert.Equal(result.Score, reverse.Score);
+                        Assert.Equal(result.IsMatch, reverse.IsMatch);
+                        Assert.Equal(result.StructuralMatchPercentage, reverse.StructuralMatchPercentage);
+                        Assert.Equal(result.Score, repeated.Score);
+                        Assert.Equal(result.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath)),
+                            repeated.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath)));
+                    }
                 }
             }
         }

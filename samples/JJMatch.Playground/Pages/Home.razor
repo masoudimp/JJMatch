@@ -1,6 +1,9 @@
 @page "/"
 @using System.Globalization
 @using System.Text.Json
+@using System.Text.RegularExpressions
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
 
 <PageTitle>JJMatch Playground</PageTitle>
 
@@ -20,6 +23,13 @@
     <label><input type="checkbox" @bind="normalized" /> Normalized</label>
     <label><input type="checkbox" @bind="fuzzy" /> Fuzzy</label>
     <label><input type="checkbox" @bind="numeric" /> Numeric</label>
+    <label>FuzzyThreshold (0 to 1, least similarity Fuzzy accepts) <input type="number" min="0" max="1" step="0.05" @bind="fuzzyThreshold" /></label>
+</fieldset>
+
+<fieldset class="settings">
+    <legend>Property names</legend>
+    <label><input type="radio" name="names" checked="@(nameMode == JJPropertyNameMatchingMode.Exact)" @onchange="() => nameMode = JJPropertyNameMatchingMode.Exact" /> Exact (character by character)</label>
+    <label><input type="radio" name="names" checked="@(nameMode == JJPropertyNameMatchingMode.Normalized)" @onchange="() => nameMode = JJPropertyNameMatchingMode.Normalized" /> Normalized (case, outer white space and Unicode form ignored)</label>
 </fieldset>
 
 <fieldset class="settings">
@@ -28,8 +38,22 @@
     <label><input type="checkbox" @bind="valueMatching" /> ValueMatching</label>
 </fieldset>
 
-<p class="snippet-label">C# for the selected settings (click to select, then copy):</p>
-<pre class="snippet"><code class="language-csharp">@Snippet()</code></pre>
+<fieldset class="settings">
+    <legend>Limits</legend>
+    <label>MaxDepth (1 to 128) <input type="number" min="1" max="128" @bind="maxDepth" /></label>
+</fieldset>
+
+<div class="snippets">
+    <div>
+        <p class="snippet-label">C# for the selected settings <button class="copy" @onclick="() => Copy(Snippet())">Copy</button></p>
+        <pre class="snippet"><code class="language-csharp">@Snippet()</code></pre>
+    </div>
+    <div>
+        <p class="snippet-label">JJSetting.json for the selected settings <button class="copy" @onclick="() => Copy(SettingsJson())">Copy</button></p>
+        <pre class="snippet"><code class="language-json">@SettingsJson()</code></pre>
+        <p class="note">Load it with <code>JJMatchSettings.FromJson(File.ReadAllText("JJSetting.json"))</code>.</p>
+    </div>
+</div>
 
 <div class="inputs">
     <label>
@@ -95,8 +119,11 @@ else if (result is not null)
     private string? error;
 
     private JJArrayMatchingMode arrayMode = JJArrayMatchingMode.Strict;
+    private JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.Exact;
     private bool exact = true, normalized, fuzzy, numeric;
     private bool structuralMatching = true, valueMatching = true;
+    private int maxDepth = new JJMatchSettings().MaxDepth;
+    private double fuzzyThreshold = new JJMatchSettings().FuzzyThreshold;
 
     private void Compare()
     {
@@ -131,7 +158,10 @@ else if (result is not null)
         return new JJMatchSettings
         {
             ArrayMode = arrayMode,
-            ValueMode = valueMode
+            ValueMode = valueMode,
+            PropertyNameMode = nameMode,
+            FuzzyThreshold = fuzzyThreshold,
+            MaxDepth = maxDepth
         };
     }
 
@@ -148,6 +178,7 @@ else if (result is not null)
             ? Member(nameof(JJValueMatchingMode), nameof(JJValueMatchingMode.None))
             : Flags<JJValueMatchingMode>(settings.ValueMode);
         var arrayModeText = Member(nameof(JJArrayMatchingMode), settings.ArrayMode.ToString());
+        var nameModeText = Member(nameof(JJPropertyNameMatchingMode), settings.PropertyNameMode.ToString());
         var varKeyword = Keyword("var");
         var newKeyword = Keyword("new");
         // Two dollar signs: {{ }} interpolates, so the single braces of the object initializer are literal.
@@ -155,10 +186,45 @@ else if (result is not null)
             {{varKeyword}} settings = {{newKeyword}} {{Type(nameof(JJMatchSettings))}}
             {
                 ArrayMode = {{arrayModeText}},
-                ValueMode = {{valueModeText}}
+                ValueMode = {{valueModeText}},
+                PropertyNameMode = {{nameModeText}},
+                FuzzyThreshold = {{Number(settings.FuzzyThreshold)}},
+                MaxDepth = {{Number(settings.MaxDepth)}}
             };
             {{varKeyword}} result = {{Type(nameof(JJMatcher))}}.Match(expectedJson, llmResponseJson, {{optionsText}}, settings);
             """);
+    }
+
+    // The JJSetting.json that JJMatchSettings.FromJson reads back into the same settings. Rendered as highlighted
+    // HTML; names are identifiers and values are member names or digits, so no escaping is needed.
+    private MarkupString SettingsJson()
+    {
+        var settings = Settings();
+        var valueModeText = settings.ValueMode == JJValueMatchingMode.None
+            ? nameof(JJValueMatchingMode.None)
+            : settings.ValueMode.ToString().Replace(", ", " | ");
+        return new MarkupString($$"""
+            {
+              {{Name(nameof(JJMatchSettings.ArrayMode))}}: {{Text(settings.ArrayMode.ToString())}},
+              {{Name(nameof(JJMatchSettings.ValueMode))}}: {{Text(valueModeText)}},
+              {{Name(nameof(JJMatchSettings.PropertyNameMode))}}: {{Text(settings.PropertyNameMode.ToString())}},
+              {{Name(nameof(JJMatchSettings.FuzzyThreshold))}}: {{Number(settings.FuzzyThreshold)}},
+              {{Name(nameof(JJMatchSettings.MaxDepth))}}: {{Number(settings.MaxDepth)}}
+            }
+            """);
+    }
+
+    // Copies a rendered snippet as plain text. Every tag is a highlighting span around plain tokens, so stripping
+    // the tags gives the text as displayed. Without clipboard access the snippet still selects whole on click.
+    private async Task Copy(MarkupString snippet)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", Regex.Replace(snippet.Value, "<[^>]+>", ""));
+        }
+        catch (JSException)
+        {
+        }
     }
 
     // Writes a non-zero flags value as "Type.A | Type.B" in declaration order.
@@ -174,6 +240,11 @@ else if (result is not null)
     private static string Keyword(string text) => $"<span class=\"kw\">{text}</span>";
     private static string Type(string text) => $"<span class=\"ty\">{text}</span>";
     private static string Member(string type, string member) => Type(type) + "." + member;
+    private static string Number(int value) => $"<span class=\"num\">{value.ToString(CultureInfo.InvariantCulture)}</span>";
+    // "R" keeps every digit of the value, so the snippet reproduces the exact threshold the comparison used.
+    private static string Number(double value) => $"<span class=\"num\">{value.ToString("R", CultureInfo.InvariantCulture)}</span>";
+    private static string Name(string text) => $"<span class=\"pn\">\"{text}\"</span>";
+    private static string Text(string text) => $"<span class=\"str\">\"{text}\"</span>";
 
     private static string Percent(double? value) =>
         value is null ? "n/a" : value.Value.ToString("R", CultureInfo.InvariantCulture) + "%";

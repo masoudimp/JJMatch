@@ -603,6 +603,7 @@
     "emptyArray": [],
     "fuzzyAssignment": ["Jon Smyth", "Jon Smith"],
     "nestedStringified": { "payload": "{ \"a\": 1 }" },
-    "invalidText": "not json"
+    "invalidText": "not json",
+    "propertyNames": { "ID": 1, " Name ": "Ali", "postal_code": "V6B", "café": true, "items": [{ "Sku": "A" }, { "sku": "B" }] }
   }
 }

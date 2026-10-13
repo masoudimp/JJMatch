@@ -1125,6 +1125,37 @@ public class ValueMatcherTests
     }
 
     [Fact]
+    public void Fuzzy_threshold_is_the_least_similarity_accepted_and_defaults_to_0_8()
+    {
+        Assert.Equal(0.8, global::JJMatch.ValueMatcher.DefaultFuzzyThreshold);
+        bool At(string name, double threshold) =>
+            global::JJMatch.ValueMatcher.MatchValues(LeftFuzzy(name), RightFuzzy(name), JJValueMatchingMode.Fuzzy, fuzzyThreshold: threshold);
+
+        // "Jon" against "John" is one edit in four, a similarity of 0.75: rejected by default, accepted from 0.75 down.
+        Assert.False(FuzzySection("shortName", "Jon", "John"));
+        Assert.True(At("shortName", 0.75));
+        Assert.True(At("shortName", 0.7));
+        Assert.False(At("shortName", 0.76));
+
+        // "Smith" against "Smyth" is exactly at the default, so a slightly higher threshold rejects it; the boundary
+        // is kept exactly although 0.8 is not representable in binary.
+        Assert.True(At("boundary", 0.8));
+        Assert.True(At("boundary", global::JJMatch.ValueMatcher.DefaultFuzzyThreshold));
+        Assert.False(At("boundary", 0.81));
+
+        // At 1 only pairs that fold to one text remain; at 0 any two strings are equal, even unrelated words.
+        Assert.True(At("composedForms", 1));
+        Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftValue("casing"), RightValue("casing"), JJValueMatchingMode.Fuzzy, fuzzyThreshold: 1));
+        Assert.False(At("caseAndPadding", 1));
+        Assert.False(At("typo", 1));
+        Assert.True(At("unrelated", 0));
+        Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftValue("emptyText"), RightValue("casing"), JJValueMatchingMode.Fuzzy, fuzzyThreshold: 0));
+
+        // The threshold decides strings only: a number stays undecided by Fuzzy however low it is set.
+        Assert.False(global::JJMatch.ValueMatcher.MatchValues(LeftNumber("integerDecimal"), RightNumber("integerDecimal"), JJValueMatchingMode.Fuzzy, fuzzyThreshold: 0));
+    }
+
+    [Fact]
     public void Fuzzy_ignores_case_padding_and_unicode_form_before_counting_edits()
     {
         // "  jon smith " against "John Smith": once trimmed and case is ignored, one edit in ten units remains.
