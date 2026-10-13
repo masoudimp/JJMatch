@@ -30,7 +30,7 @@ Start with the **[consumer guide](Guide.md)** for installation, complete example
 - Optional unordered arrays, structural shape comparison, and Exact, Normalized, Numeric or Fuzzy value rules.
 - Read-only differences with paths and detached JSON snapshots, including original array indices and duplicate-property occurrences.
 - Deterministic, symmetric Sørensen–Dice node similarity from 0 to 100. `IsMatch` is true exactly when `Score` is 100 and `Differences` is empty. Containers earn structural credit; the score is not a probability or domain-specific accuracy measure. See [scoring semantics and research](Docs/Scoring.md).
-- Explicit stringified-input support, cancellation and configurable resource limits. Invalid options and settings throw rather than being silently ignored.
+- Automatic decoding of a stringified JSON object or array root, cancellation and configurable resource limits. Invalid options and settings throw rather than being silently ignored.
 
 Useful for comparing expected and actual API responses, test data, or structured LLM output. Similar JSON does not necessarily mean a factually correct answer.
 

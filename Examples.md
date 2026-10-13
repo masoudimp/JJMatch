@@ -1355,30 +1355,26 @@ In `deepObject` the 25th-level object on the left meets a string on the right: o
 
 ### Example 32: stringified JSON input
 
-Some APIs return a whole JSON document encoded inside a JSON string. The fixture `tests/JJMatch.Tests/TestData/Stringified/LeftStringify.txt` is exactly that: the text of `Left.json` serialized as one JSON string, and `RightStringify.txt` likewise for `Right.json`. Both whole fixtures contain the 100-level array, so every row needs `MaxDepth = 128`.
+Some APIs return a whole JSON document encoded inside a JSON string. The fixture `tests/JJMatch.Tests/TestData/Stringified/LeftStringify.txt` is exactly that: the text of `Left.json` serialized as one JSON string, and `RightStringify.txt` likewise for `Right.json`. Such input is recognized and decoded without any setting. Both whole fixtures contain the 100-level array, so every row needs `MaxDepth = 128`.
 
 ```csharp
 string leftText = File.ReadAllText("tests/JJMatch.Tests/TestData/Stringified/LeftStringify.txt");
 string rightText = File.ReadAllText("tests/JJMatch.Tests/TestData/Stringified/RightStringify.txt");
-var plain = new JJMatchSettings { MaxDepth = 128 };
-var decoded = new JJMatchSettings { MaxDepth = 128, ParseStringifiedJson = true };
-Show("plain", JJMatcher.Match(leftText, leftJson, settings: plain));
-Show("decoded", JJMatcher.Match(leftText, leftJson, settings: decoded));
-Show("decoded L vs R", JJMatcher.Match(leftText, rightText, settings: decoded));
+var deep = new JJMatchSettings { MaxDepth = 128 };
+Show("stringified vs plain", JJMatcher.Match(leftText, leftJson, settings: deep));
+Show("stringified L vs R", JJMatcher.Match(leftText, rightText, settings: deep));
 ```
 
 | Left | Right | Settings | IsMatch | Score | Count | Differences |
 | --- | --- | --- | --- | ---: | ---: | --- |
 | `LeftStringify.txt` | `Left.json` | default | throws `JsonException`: depth 64 exceeded | | | |
-| `LeftStringify.txt` | `Left.json` | MaxDepth 128 | false | `0` | 1 | TypeMismatch `$` (string against object) |
-| `LeftStringify.txt` | `Left.json` | MaxDepth 128, ParseStringifiedJson | true | `100` | 0 | |
-| `Left.json` | `LeftStringify.txt` | MaxDepth 128, ParseStringifiedJson | true | `100` | 0 | |
-| `LeftStringify.txt` | `RightStringify.txt` | MaxDepth 128, ParseStringifiedJson | false | `70.7037643207856` | 314 | 151 ValueMismatch, 44 TypeMismatch, 43 Missing, 76 Added |
+| `LeftStringify.txt` | `Left.json` | MaxDepth 128 | true | `100` | 0 | |
+| `Left.json` | `LeftStringify.txt` | MaxDepth 128 | true | `100` | 0 | |
+| `LeftStringify.txt` | `RightStringify.txt` | MaxDepth 128 | false | `70.7037643207856` | 314 | 151 ValueMismatch, 44 TypeMismatch, 43 Missing, 76 Added |
 | `Left.json` | `Right.json` | MaxDepth 128 | false | `70.7037643207856` | 314 | the same 314 |
-| `LeftStringify.txt` | `RightStringify.txt` | MaxDepth 128, ParseStringifiedJson, Unordered, all four rules | false | `82.74959083469722` | 179 | 45 ValueMismatch, 25 TypeMismatch, 40 Missing, 69 Added |
-| `LeftStringify.txt` | `RightStringify.txt` | MaxDepth 128, no decoding | false | `0` | 1 | ValueMismatch `$` (two different strings) |
+| `LeftStringify.txt` | `RightStringify.txt` | MaxDepth 128, Unordered, all four rules | false | `82.74959083469722` | 179 | 45 ValueMismatch, 25 TypeMismatch, 40 Missing, 69 Added |
 
-`ParseStringifiedJson` decodes exactly one outer string on each side, and only when the root is a string; an ordinary object or array root is untouched, which is why mixing a decoded and a plain input works. Without it the stringified document is one string node. Decoding is not normalization: the decoded fixtures give the same 314 differences as the files themselves.
+A root string is decoded exactly once on each side, and only when its content is a JSON object or array; an ordinary object or array root is untouched, which is why mixing a stringified and a plain input works. Decoding is not normalization: the decoded fixtures give the same 314 differences as the files themselves.
 
 Strings nested **inside** a document stay literal. Section `publicApi.nestedStringified`:
 
@@ -1392,12 +1388,12 @@ Strings nested **inside** a document stay literal. Section `publicApi.nestedStri
 
 | Configurations | IsMatch | Score | Count | Differences |
 | --- | --- | ---: | ---: | --- |
-| A to L, with or without ParseStringifiedJson | false | `50` | 1 | ValueMismatch `$.payload` |
+| A to L | false | `50` | 1 | ValueMismatch `$.payload` |
 | M N O | true | `100` | 0 | |
 
 The two payloads differ by internal spaces, which Normalized keeps and Fuzzy counts as three edits in eleven characters, so no value rule accepts them, and no setting parses them as JSON.
 
-Two further rows from the fixtures: `publicApi.invalidText` on the left is the string `"{"`; decoding it throws `JsonException`, as does passing its content `{` directly as an input. `core.loneSurrogates.values[0]` is the string `"\uD800"`, a lone surrogate; with `ParseStringifiedJson` it throws `JsonException` with the message `The outer JSON string must decode to valid Unicode JSON text.` Decoding never returns a partial result.
+Two further rows from the fixtures: `publicApi.invalidText` is the string `"{"` on the left and `"not json"` on the right. Neither decodes as a JSON object or array, so both stay literal strings: the pair is one `ValueMismatch` at `$`, and each against itself is a match, while passing the content `{` directly as an input throws `JsonException`. `core.loneSurrogates.values[0]` is the string `"\uD800"`, a lone surrogate, which cannot be decoded as text; it stays a literal string too, a match against itself and a `TypeMismatch` at `$` against `Left.json`.
 
 ### Example 33: resource limits, invalid options and errors
 

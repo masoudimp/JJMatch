@@ -48,6 +48,14 @@ body {
     white-space: pre;
 }
 
+.snippet .kw {
+    color: #0000ff;
+}
+
+.snippet .ty {
+    color: #267f99;
+}
+
 .inputs {
     display: grid;
     gap: 1rem;

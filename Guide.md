@@ -383,24 +383,20 @@ Fuzzy can accept changed digits inside strings; prefer Exact for identifiers. It
 
 ### Stringified JSON: decode one outer layer
 
-Sometimes an API returns JSON encoded inside a JSON string. This example wraps the main Left document without changing its contents:
+Sometimes an API returns JSON encoded inside a JSON string. Such input is recognized and decoded without any setting. This example wraps the main Left document without changing its contents:
 
 ```csharp
 string encodedLeft = JsonSerializer.Serialize(leftJson);
-Show("Encoded, default", JJMatcher.Match(encodedLeft, leftJson));
-Show("Encoded, decoded", JJMatcher.Match(encodedLeft, leftJson,
-    settings: new JJMatchSettings { ParseStringifiedJson = true }));
-Show("Encoded Left vs Right", JJMatcher.Match(encodedLeft, rightJson,
-    settings: new JJMatchSettings { ParseStringifiedJson = true }));
+Show("Encoded Left vs Left", JJMatcher.Match(encodedLeft, leftJson));
+Show("Encoded Left vs Right", JJMatcher.Match(encodedLeft, rightJson));
 ```
 
 | Comparison | IsMatch | Score | Differences |
 | --- | --- | ---: | --- |
-| Encoded Left vs plain Left, default | false | `0` | 1 TypeMismatch at `$`: string vs object |
-| Same inputs, ParseStringifiedJson | true | `100` | 0 |
-| Encoded Left vs plain Right, ParseStringifiedJson | false | `50` | Same 11 differences as A |
+| Encoded Left vs plain Left | true | `100` | 0 |
+| Encoded Left vs plain Right | false | `50` | Same 11 differences as A |
 
-Only one outer string is decoded. Ordinary object/array roots stay unchanged, and strings nested inside a document remain literal values. Invalid decoded JSON throws `JsonException`; it does not return a zero score.
+A root string is decoded only when its content is a JSON object or array, and only one outer layer is decoded. Ordinary object/array roots stay unchanged, strings nested inside a document remain literal values, and any other root string, such as `"hello"`, `"123"` or `"{"`, is compared as the string it is.
 
 ### Resource limits and input mistakes
 

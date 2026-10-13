@@ -9,9 +9,6 @@ public sealed class JJMatchSettings
     /// <summary>Primitive value rules, combined by OR. Defaults to Exact.</summary>
     public JJValueMatchingMode ValueMode { get; set; } = JJValueMatchingMode.Exact;
 
-    /// <summary>Decode one outer JSON string as another JSON document. Nested string values remain literal. Defaults to false.</summary>
-    public bool ParseStringifiedJson { get; set; }
-
     /// <summary>Maximum container depth of each parsed document, from 1 to 128. Defaults to 64.</summary>
     public int MaxDepth { get; set; } = 64;
 

@@ -83,23 +83,30 @@ public static class JJMatcher
             throw new InvalidOperationException("Input exceeded JJMatchSettings.MaxInputLength.");
         var options = new JsonDocumentOptions { MaxDepth = settings.MaxDepth };
         var document = JsonDocument.Parse(text, options);
-        if (!settings.ParseStringifiedJson || document.RootElement.ValueKind != JsonValueKind.String) return document;
-        // One layer only. Explicit opt-in avoids reinterpreting an ordinary JSON string unexpectedly.
-        using (document)
+        if (document.RootElement.ValueKind != JsonValueKind.String) return document;
+        // A string root holding a serialized object or array is decoded, one layer only. Any other string root,
+        // undecodable or unparsable ones included, stays a literal string, so every JSON root is still accepted.
+        string decoded;
+        try
         {
-            string decoded;
-            try
-            {
-                decoded = document.RootElement.GetString()!;
-            }
-            catch (InvalidOperationException exception)
-            {
-                throw new JsonException("The outer JSON string must decode to valid Unicode JSON text.", exception);
-            }
-            budget.Spend();
-            if (decoded.Length > settings.MaxInputLength)
-                throw new InvalidOperationException("Decoded input exceeded JJMatchSettings.MaxInputLength.");
-            return JsonDocument.Parse(decoded, options);
+            decoded = document.RootElement.GetString()!;
+        }
+        catch (InvalidOperationException)
+        {
+            return document;
+        }
+        var start = decoded.AsSpan().TrimStart(" \t\r\n".AsSpan());
+        if (start.Length == 0 || (start[0] != '{' && start[0] != '[')) return document;
+        budget.Spend();
+        try
+        {
+            var inner = JsonDocument.Parse(decoded, options);
+            document.Dispose();
+            return inner;
+        }
+        catch (JsonException)
+        {
+            return document;
         }
     }
 
