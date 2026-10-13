@@ -12,7 +12,7 @@ internal static class StructureMatcher
     /// Primitive values, object property order, array element order and repeated element shapes are ignored.
     /// </summary>
     internal static StructureMatchResult Match(JsonStructureNode left, JsonStructureNode right) =>
-        Match(left, right, JJArrayMatchingMode.StructureOnly, JJValueMatchingMode.Exact, false, null);
+        Match(left, right, JJArrayMatchingMode.StructureOnly, JJValueMatchingMode.None, false, null);
 
     // Structural alignment stays here; primitive value decisions are delegated to ValueMatcher. One cache can serve
     // several calls over the same trees with the same modes, such as the value-aware and structural passes of a
@@ -23,7 +23,7 @@ internal static class StructureMatcher
         ComparisonCache? cache = null, JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.Exact,
         double fuzzyThreshold = ValueMatcher.DefaultFuzzyThreshold)
     {
-        var rules = new Rules(arrayMode, valueMode, compareValues, budget, cache ?? new ComparisonCache(arrayMode, valueMode, budget, nameMode), fuzzyThreshold);
+        var rules = new Rules(arrayMode, valueMode, compareValues, budget, cache ?? new ComparisonCache(arrayMode, budget, nameMode), fuzzyThreshold);
         var differences = new List<StructureDifference>();
         var matchedCount = Compare(left, right, new List<string?>(), differences, rules);
         return new StructureMatchResult(matchedCount, differences);

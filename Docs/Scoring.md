@@ -12,7 +12,7 @@ Score = 100 × 2M / (L + R)
 
 The node representation and allowed correspondence below are JJMatch's domain choices, not properties dictated by Dice. Tree similarity research establishes maximum common subtree matching as a well-defined optimization problem and uses assignment subproblems. JJMatch reuses its existing recursive assignment engine with stricter JSON-specific rules; it does **not** implement the unrestricted subtree algorithm or claim its complexity bounds. [Droschinsky, Kriege and Mutzel, *Faster Algorithms for the Maximum Common Subtree Isomorphism Problem*](https://arxiv.org/abs/1602.07210)
 
-Alternatives considered: Jaccard also normalizes overlap but uses union in the denominator; raw edit counts need edit operations and costs before normalization; averaging independent structure/value percentages obscures missing-value denominators and requires arbitrary component weights. Dice directly answers how much of both documents participates in accepted matches. No weights or configurable success threshold are used.
+Alternatives considered: Jaccard also normalizes overlap but uses union in the denominator; raw edit counts need edit operations and costs before normalization; averaging independent structure/value percentages obscures missing-value denominators and requires arbitrary component weights. Dice directly answers how much of both documents participates in accepted matches. No configurable success threshold is used. This unweighted score is `JJScoringMode.Standard`, the default; the opt-in weighted mode is defined in its own section below and changes only the measure, never the alignment.
 
 ## What counts
 
@@ -45,14 +45,43 @@ The denominator and maximum correspondence size are unchanged on swapping inputs
 | `[]` vs `{}`, any policy | 1 | 1 | 0 | 0 |
 | `[{"id":1},{"id":2}]` vs `[{"id":9}]`, StructureOnly arrays | 3 | 3 | 3 | 100 |
 
+## Weighted scoring (opt-in)
+
+`JJMatchSettings.Scoring` holds a `JJScoringSettings` and is never null: a new settings object carries a configuration whose `Mode` is `Standard`, which is the score above unchanged, and assigning null throws. `JJScoringMode.Weighted` keeps the same maximum correspondence, the same node counting and the same differences, and replaces the measure by a **weighted Sørensen–Dice** over node weights:
+
+```text
+Score = 100 × 2 × MaxWeight × M / (2 × MaxWeight × M + Σ over differences d of w(d) × n(d))
+```
+
+- A matched node weighs `MaxWeight` (10) on each side, so the matched mass is `2 × 10 × M`.
+- Every difference `d` has a public `JJDifferenceKind` and `n(d)` unmatched nodes, counted exactly as `L` and `R` count nodes: both primitives of a `ValueMismatch` (2), the nodes of both subtrees of a `TypeMismatch`, the nodes of the left subtree of a `Missing`, the nodes of the right subtree of an `Added`. Under StructureOnly arrays these are the shape-reduced sizes of the denominator.
+- `w(d)` is the configured weight of that kind, an integer from `MinWeight` (1, least important) to `MaxWeight` (10, most critical): `TypeMismatchWeight` 10 (the shape a consumer relies on is broken, and nothing below it is compared), `MissingWeight` 8 (expected content is absent), `ValueMismatchWeight` 6 (the shape holds, the content does not) and `AddedWeight` 3 (everything expected is still there) by default. A weight outside 1 to 10, or an undefined mode, throws `ArgumentOutOfRangeException`; the weights are validated under `Standard` too, where they play no part.
+
+**No double counting.** Nothing below a reported difference is compared or reported again, and every unmatched node lies below exactly one difference, so `Σ n(d) = L + R − 2M`. A missing subtree therefore weighs its whole size once, under its one difference, and a type mismatch weighs the nodes of both sides once, because each side's nodes are distinct members of the denominator. With every weight at 10 the quotient is `2 × 10 × M / (10 × (L + R))`, the same rational number as `2M / (L + R)`, and both modes compute it as one correctly rounded division of exactly representable integers, so they then agree bit for bit.
+
+**Properties.** `0 ≤ Score ≤ 100`. It is 100 exactly when there is no difference, which is `IsMatch`, and 0 exactly when `M = 0`, whatever the weights. The denominator is positive because both documents have a root. The score is deterministic. Weights discount, never amplify: a `Weighted` score is never below the `Standard` one, lowering a weight never lowers the score, raising one never raises it, and a kind that is not reported has no effect. Swapping the documents turns every `Missing` into an `Added` and back, so the weighted score is symmetric exactly when `MissingWeight` equals `AddedWeight`, or when the two weights are swapped together with the documents; this is deliberate, since the left document is the expected one. `IsMatch` and `Differences` never depend on the mode or the weights; each `JJDifference` reports the weight applied to it as `ScoreWeight`, the configured weight of its kind under `Weighted` and 10 under `Standard`. `StructuralMatchPercentage` applies the same weights to the structure-only pass, where no `ValueMismatch` occurs; `ValueMatchPercentage` is the weighted `Score` as before.
+
+**What the weights do not do.** The correspondence is still the one that matches the most nodes with unit weights (see [Match.md](Match.md)); the weights are applied to the differences of that correspondence afterwards, so a pairing that would leave a lighter weighted mass unmatched is not sought. Weights are per public kind: the internal duplicate-count category takes the `Missing` or `Added` weight of the side it is reported on, and containers and leaves weigh alike within a kind. Scores under different weight configurations measure different things and are comparable only through the ordering guarantees above.
+
+| Inputs (left is the expected document), default policy | Standard | Weighted, default weights | Weighted unmatched mass against matched mass |
+| --- | ---: | ---: | --- |
+| `{"name":"Ann","age":30}` vs age 31 | 66.666… | `4000 / 52` = 76.923… | `2 × 6 = 12` against `2 × 10 × 2 = 40` |
+| Same pair with `ValueMismatchWeight = 10` | 66.666… | 66.666… | `20` against `40`, the Standard quotient |
+| `[1,2]` vs `[1,2,3]` | 85.714… | `6000 / 63` = 95.238… | one added node, `3` against `60` |
+| `[1,2,3]` vs `[1,2]` | 85.714… | `6000 / 68` = 88.235… | one missing node, `8` against `60` |
+| `[]` vs `{}` | 0 | 0 | `2 × 10 = 20` against `0` |
+| `publicApi.nested` fixtures (city, two tags, `old`, `nullable` and the added array `[1]`) | 37.5 | `6000 / 118` = 50.847… | `3 × 2 × 6 + 2 × 8 + 2 × 3 = 58` against `60` |
+| Same fixtures with `AddedWeight = 10` | 37.5 | `6000 / 132` = 45.454… | the added array weighs its two nodes: `36 + 16 + 20` |
+| Guide pair, Strict, default values | 50 | `20000 / 319` = 62.695… | `9 × 2 × 6 + 8 + 3 = 119` against `200` |
+
 ## Limits of interpretation
 
-Equal unit weights make deeply nested or large subtrees count more than shallow ones. Shared containers are meaningful structural overlap even when no leaf values match; 0 means no node matches under the permitted correspondence, not a domain judgment. An important identifier has no special weight. A large missing subtree lowers the score according to all its nodes but produces only one diagnostic, so counting differences cannot reproduce the score.
+Equal unit weights make deeply nested or large subtrees count more than shallow ones, and so does the weighted mode within one kind of difference. Shared containers are meaningful structural overlap even when no leaf values match; 0 means no node matches under the permitted correspondence, not a domain judgment. An important identifier has no special weight: the weighted mode weighs kinds of difference, not paths. A large missing subtree lowers the score according to all its nodes but produces only one diagnostic, so counting differences cannot reproduce the score.
 
 Fuzzy acceptance is nontransitive. The score is not a probability, semantic truth measure, or mathematical distance metric; neither the triangle inequality nor equivalence classes are promised. Adding a shared node generally raises a partial score; changing array mode or value rules changes the comparison problem, so scores across policies need not be comparable. More permissive primitive acceptance cannot lower the optimal score under a fixed array policy and denominator.
 
-Normalized and Fuzzy alone accept only strings; Numeric alone accepts only numbers. Consequently identical mixed-type documents need not match under those single flags. Include Exact to preserve identity for the other primitive kinds. ValueMode.None is rejected when values are compared.
+Normalized and Fuzzy relax only strings and Numeric only numbers. Identical primitives of every kind match under any selection, `None` included, so a document always matches itself. `None`, the default, accepts identical values only.
 
 Resource limits fail the operation instead of returning an approximation. Cancellation is cooperative and the work budget is an implementation allowance, not a time or memory guarantee. Parsing and individual runtime operations such as Unicode normalization or cloning a snapshot are bounded by input limits but cannot be interrupted midway. Unordered arrays and repeated names are more expensive than positional arrays; groups are capped before allocating assignment matrices. The public depth and node caps bound recursion and integer score arithmetic. Internal legacy calls without a budget retain their previous unrestricted behavior.
 
-`StructuralMatchPercentage` recomputes structure-only similarity under the same array policy. `ValueMatchPercentage` is the main value-aware document Score, including required structural context; it is not a separate component to average with the structural score. These diagnostic properties do not change the three-output contract.
+`StructuralMatchPercentage` recomputes structure-only similarity under the same array policy and scoring mode. `ValueMatchPercentage` is the main value-aware document Score, including required structural context; it is not a separate component to average with the structural score. These diagnostic properties do not change the three-output contract.

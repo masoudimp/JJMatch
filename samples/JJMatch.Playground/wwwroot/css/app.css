@@ -1,60 +1,25 @@
-body {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    margin: 0 auto;
-    max-width: 72rem;
-    padding: 1rem;
-    line-height: 1.4;
+.json-input {
+    font-size: 0.9rem;
+    min-height: 18rem;
 }
 
-.loading {
-    color: #666;
-}
-
-.drawer {
-    margin: 0 0 0.75rem;
+.number-input {
+    width: 6rem;
 }
 
 .drawer summary {
     cursor: pointer;
-    font-weight: 600;
-    margin: 0 0 0.5rem;
     user-select: none;
 }
 
-.settings {
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1rem;
-    margin: 0 0.75rem 0.75rem 0;
-    padding: 0.5rem 0.75rem;
-    vertical-align: top;
-}
-
-.settings legend {
-    font-weight: 600;
-    padding: 0 0.25rem;
-}
-
-.settings label {
-    white-space: nowrap;
-}
-
-.snippet-label {
-    font-weight: 600;
-    margin: 0 0 0.25rem;
+.drawer:not([open]) summary {
+    border-bottom: 0;
+    border-radius: var(--bs-card-inner-border-radius);
 }
 
 .snippet {
-    background: #f6f8fa;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.85rem;
-    margin: 0 0 1rem;
     overflow-x: auto;
-    padding: 0.5rem 0.75rem;
     user-select: all;
     white-space: pre;
 }
@@ -79,98 +44,8 @@ body {
     color: #a31515;
 }
 
-.snippets {
-    display: grid;
-    gap: 0 1rem;
-    grid-template-columns: 1fr 1fr;
-}
-
-.copy {
-    font-size: 0.8rem;
-    margin: 0 0 0 0.5rem;
-    padding: 0.1rem 0.6rem;
-}
-
-.note {
-    color: #666;
-    font-size: 0.9rem;
-    margin: -0.5rem 0 1rem;
-}
-
-.settings input[type="number"] {
-    width: 5rem;
-}
-
-.inputs {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: 1fr 1fr;
-}
-
-.inputs label {
-    display: flex;
-    flex-direction: column;
-    font-weight: 600;
-}
-
-.inputs textarea {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.9rem;
-    font-weight: 400;
-    min-height: 18rem;
-    margin-top: 0.25rem;
-    padding: 0.5rem;
-    resize: vertical;
-}
-
-button {
-    font-size: 1rem;
-    margin: 1rem 0;
-    padding: 0.5rem 1.5rem;
-}
-
 .error {
-    color: #b00020;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     white-space: pre-wrap;
-}
-
-.summary {
-    display: grid;
-    gap: 0.25rem 1rem;
-    grid-template-columns: max-content 1fr;
-}
-
-.summary dt {
-    font-weight: 600;
-}
-
-.summary dd {
-    margin: 0;
-}
-
-table {
-    border-collapse: collapse;
-    width: 100%;
-}
-
-th, td {
-    border-bottom: 1px solid #ddd;
-    padding: 0.35rem 0.5rem;
-    text-align: left;
-    vertical-align: top;
-}
-
-td {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.85rem;
-    word-break: break-all;
-}
-
-@media (max-width: 48rem) {
-    .inputs, .snippets {
-        grid-template-columns: 1fr;
-    }
 }
 
 #blazor-error-ui {

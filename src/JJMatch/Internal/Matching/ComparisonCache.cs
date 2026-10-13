@@ -10,7 +10,6 @@ namespace JJMatch;
 internal sealed class ComparisonCache
 {
     private readonly JJArrayMatchingMode _arrays;
-    private readonly JJValueMatchingMode _values;
     private readonly JJPropertyNameMatchingMode _nameMode;
     private readonly ComparisonBudget? _budget;
     private readonly Dictionary<JsonStructureNode, Entry> _entries = new Dictionary<JsonStructureNode, Entry>();
@@ -24,11 +23,10 @@ internal sealed class ComparisonCache
     private readonly int[]?[] _rows = new int[3][];
     private int _unique;
 
-    internal ComparisonCache(JJArrayMatchingMode arrays, JJValueMatchingMode values, ComparisonBudget? budget,
+    internal ComparisonCache(JJArrayMatchingMode arrays, ComparisonBudget? budget,
         JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.Exact)
     {
         _arrays = arrays;
-        _values = values;
         _nameMode = nameMode;
         _budget = budget;
         _nameTexts = new Dictionary<string, int>(StructureMatcher.NameComparer(nameMode));
@@ -240,22 +238,10 @@ internal sealed class ComparisonCache
         return new Entry { Shape = shapeIdentity, Valued = shapesOnly ? shapeIdentity : Intern(valued), Size = size };
     }
 
-    // A primitive is identical to itself under the selected value rules when a rule accepts two copies of it: Exact
-    // accepts every decodable primitive, Normalized and Fuzzy every decodable string, Numeric every number. A string
-    // without a Value matches nothing, itself included.
-    private bool SelfMatching(JsonStructureNode node)
-    {
-        switch (node.ValueKind)
-        {
-            case JsonValueKind.String:
-                return node.Value is not null
-                    && (_values & (JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy)) != 0;
-            case JsonValueKind.Number:
-                return (_values & (JJValueMatchingMode.Exact | JJValueMatchingMode.Numeric)) != 0;
-            default:
-                return (_values & JJValueMatchingMode.Exact) != 0;
-        }
-    }
+    // Identical values always match, so every decodable primitive is identical to itself. A string without a Value
+    // matches nothing, itself included.
+    private static bool SelfMatching(JsonStructureNode node) =>
+        node.ValueKind != JsonValueKind.String || node.Value is not null;
 
     private int Text(string text)
     {

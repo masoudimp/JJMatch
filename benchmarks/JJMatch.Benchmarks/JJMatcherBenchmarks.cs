@@ -32,7 +32,7 @@ public class JJMatcherBenchmarks
     private static readonly JJMatchSettings Fuzzy = new()
     {
         ArrayMode = JJArrayMatchingMode.Unordered,
-        ValueMode = JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric,
+        ValueMode = JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric,
         MaxAssignmentSize = 256,
         MaxWork = 1_000_000_000,
     };

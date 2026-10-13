@@ -11,7 +11,7 @@ public static class JJMatcher
     /// <param name="json1">The left JSON document. Any valid JSON root is accepted.</param>
     /// <param name="json2">The right JSON document.</param>
     /// <param name="options">Use StructuralMatching to ignore primitive values; null or All compares structure and values.</param>
-    /// <param name="settings">Optional array, value and property name rules and resource limits. Defaults to Strict arrays, Exact values and Exact names.</param>
+    /// <param name="settings">Optional array, value and property name rules, scoring configuration and resource limits. Defaults to Strict arrays, identical values, Exact names and Standard scoring.</param>
     /// <param name="cancellationToken">Cancels comparison cooperatively.</param>
     /// <exception cref="ArgumentNullException">An input is null.</exception>
     /// <exception cref="ArgumentException">Options or settings are invalid.</exception>
@@ -31,27 +31,22 @@ public static class JJMatcher
         var features = flags & (JJMatchOptions.StructuralMatching | JJMatchOptions.ValueMatching);
         var compareValues = features != JJMatchOptions.StructuralMatching;
         var structuralDiagnostics = features != JJMatchOptions.ValueMatching;
-        if (compareValues && config.ValueMode == JJValueMatchingMode.None)
-            throw new ArgumentException("Select a value rule, or use StructuralMatching to ignore values.", nameof(settings));
 
         var budget = new ComparisonBudget(config, cancellationToken);
         using var leftDocument = Parse(json1, config, budget);
         using var rightDocument = Parse(json2, config, budget);
         var left = JsonStructureTraverser.Traverse(leftDocument.RootElement, budget: budget);
         var right = JsonStructureTraverser.Traverse(rightDocument.RootElement, budget: budget);
-        var cache = new ComparisonCache(config.ArrayMode, config.ValueMode, budget, config.PropertyNameMode);
+        var cache = new ComparisonCache(config.ArrayMode, budget, config.PropertyNameMode);
         var total = StructureMatcher.CountNodes(left, config.ArrayMode, budget, cache)
             + StructureMatcher.CountNodes(right, config.ArrayMode, budget, cache);
         var match = StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, compareValues, budget, cache, config.PropertyNameMode, config.FuzzyThreshold);
-        var score = Dice(match.MatchedCount, total);
-        double? structuralScore = null;
-        if (structuralDiagnostics)
-        {
-            // A value-aware full match is a structural full match too, and a structural count cannot exceed the total.
-            structuralScore = compareValues && match.Differences.Count != 0
-                ? Dice(StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, false, budget, cache, config.PropertyNameMode).MatchedCount, total)
-                : score;
-        }
+        // A value-aware full match is a structural full match too, and a structural count cannot exceed the total.
+        var structural = structuralDiagnostics && compareValues && match.Differences.Count != 0
+            ? StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, false, budget, cache, config.PropertyNameMode)
+            : null;
+        var score = Score(match, total, config, budget, cache);
+        double? structuralScore = !structuralDiagnostics ? null : structural is null ? score : Score(structural, total, config, budget, cache);
 
         var differences = new List<JJDifference>(match.Differences.Count);
         if (match.Differences.Count != 0)
@@ -63,11 +58,8 @@ public static class JJMatcher
                 budget.Spend();
                 var l = difference.Left is null ? default : leftLocations[difference.Left];
                 var r = difference.Right is null ? default : rightLocations[difference.Right];
-                var kind = difference.Left is null ? JJDifferenceKind.Added
-                    : difference.Right is null ? JJDifferenceKind.Missing
-                    : difference.MismatchType == StructureMismatchType.ValueMismatch ? JJDifferenceKind.ValueMismatch
-                    : JJDifferenceKind.TypeMismatch;
-                differences.Add(new JJDifference(kind, l.Path, r.Path,
+                var kind = Kind(difference);
+                differences.Add(new JJDifference(kind, config.Scoring.AppliedWeight(kind), l.Path, r.Path,
                     difference.Left is null ? null : l.Element, difference.Right is null ? null : r.Element));
             }
         }
@@ -78,6 +70,35 @@ public static class JJMatcher
     // Matched nodes are a one-to-one correspondence, so 2M <= total. Bounded integer node counts keep both
     // endpoints exact in double arithmetic: no rounding/clamping is used to hide a mismatch.
     private static double Dice(int matched, int total) => 200d * matched / total;
+
+    // The public kind of an internal difference: the side that is absent decides, then the category.
+    private static JJDifferenceKind Kind(StructureDifference difference) =>
+        difference.Left is null ? JJDifferenceKind.Added
+        : difference.Right is null ? JJDifferenceKind.Missing
+        : difference.MismatchType == StructureMismatchType.ValueMismatch ? JJDifferenceKind.ValueMismatch
+        : JJDifferenceKind.TypeMismatch;
+
+    // Standard scoring is Dice over the node counts. Weighted scoring is Dice over node weights: a matched node weighs
+    // MaxWeight on each side, and an unmatched node the weight of the kind of the difference reported above it. Every
+    // unmatched node lies under exactly one difference (nothing below a difference is compared or reported again), so
+    // the weighted unmatched mass is a sum over the differences of their subtree sizes, counted as the denominator
+    // counts them, and nothing is counted twice. With every weight at MaxWeight the quotient is 200M / (L + R) again,
+    // computed as one correctly rounded division of the same rational number, so the two modes then agree exactly.
+    private static double Score(StructureMatchResult match, int total, JJMatchSettings config, ComparisonBudget budget, ComparisonCache cache)
+    {
+        if (config.Scoring.Mode == JJScoringMode.Standard) return Dice(match.MatchedCount, total);
+        long unmatched = 0;
+        foreach (var difference in match.Differences)
+        {
+            budget.Spend();
+            long weight = config.Scoring.Weight(Kind(difference));
+            if (difference.Left is not null) unmatched += weight * StructureMatcher.CountNodes(difference.Left, config.ArrayMode, budget, cache);
+            if (difference.Right is not null) unmatched += weight * StructureMatcher.CountNodes(difference.Right, config.ArrayMode, budget, cache);
+        }
+        // Roots exist on both sides, so the denominator is positive: either a node matched or the roots differ.
+        var matched = 2L * JJScoringSettings.MaxWeight * match.MatchedCount;
+        return 100d * matched / (matched + unmatched);
+    }
 
     private static JsonDocument Parse(string text, JJMatchSettings settings, ComparisonBudget budget)
     {

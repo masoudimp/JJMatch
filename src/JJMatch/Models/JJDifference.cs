@@ -5,9 +5,10 @@ namespace JJMatch;
 /// <summary>One difference, with the original locations and JSON values on both sides.</summary>
 public sealed class JJDifference
 {
-    internal JJDifference(JJDifferenceKind kind, string? leftPath, string? rightPath, JsonElement? leftValue, JsonElement? rightValue)
+    internal JJDifference(JJDifferenceKind kind, int scoreWeight, string? leftPath, string? rightPath, JsonElement? leftValue, JsonElement? rightValue)
     {
         Kind = kind;
+        ScoreWeight = scoreWeight;
         LeftPath = leftPath;
         RightPath = rightPath;
         LeftValue = leftValue?.Clone();
@@ -16,6 +17,14 @@ public sealed class JJDifference
 
     /// <summary>The type of difference.</summary>
     public JJDifferenceKind Kind { get; }
+
+    /// <summary>
+    /// The importance weight the score applied to this difference, from 1 to 10: the <see cref="JJScoringSettings"/>
+    /// weight of its <see cref="Kind"/> under <see cref="JJScoringMode.Weighted"/>, and <see cref="JJScoringSettings.MaxWeight"/>
+    /// under <see cref="JJScoringMode.Standard"/>, where every difference counts fully. Each unmatched node under the
+    /// difference costs this weight against a matched node's 10.
+    /// </summary>
+    public int ScoreWeight { get; }
 
     /// <summary>The left path when present, otherwise the right path.</summary>
     public string Path => LeftPath ?? RightPath!;

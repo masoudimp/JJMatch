@@ -7,19 +7,17 @@ namespace JJMatch;
 /// controlled separately by <see cref="JJMatchOptions.ValueMatching"/>; this enum never scores structure.
 /// </para>
 /// <para>
-/// Every mode is a flag of its own, so modes combine with <c>|</c> and <c>Exact | Normalized</c> is not
-/// <c>Normalized</c>. <see cref="None"/> is <c>0</c> and selects no mode, so it is never a useful default;
-/// <see cref="Exact"/> is the mode to use when none is named.
+/// Identical values always match: decoded strings and written number tokens that are the same, and booleans and
+/// null against themselves. That rule is not a mode and cannot be turned off. Every mode is a flag that accepts
+/// further pairs on top of it, so modes combine with <c>|</c>, and <see cref="None"/>, the default, accepts
+/// identical values only.
 /// </para>
 /// </remarks>
 [Flags]
 public enum JJValueMatchingMode
 {
-    /// <summary>No rule. Rejected by Match when primitive value comparison is enabled.</summary>
+    /// <summary>No relaxation: only identical values match. The default.</summary>
     None = 0,
-
-    /// <summary>Decoded strings and written number tokens must be identical; booleans and null match themselves. The default.</summary>
-    Exact = 1,
 
     /// <summary>
     /// Compares strings ignoring case and leading and trailing whitespace, with precomposed and decomposed Unicode
@@ -27,7 +25,7 @@ public enum JJValueMatchingMode
     /// the JSON type are kept: <c>"New York"</c> does not match <c>"NewYork"</c>, and <c>"123"</c> does not match
     /// <c>123</c>.
     /// </summary>
-    Normalized = 2,
+    Normalized = 1,
 
     /// <summary>
     /// Compares strings by how similar they are, tolerating typos and small spelling differences, so
@@ -37,12 +35,12 @@ public enum JJValueMatchingMode
     /// allowed for every five units of the longer folded string, so <c>"Jon"</c> does not match <c>"John"</c>.
     /// Similarity is not transitive. The JSON type is kept: <c>"123"</c> does not match <c>123</c>.
     /// </summary>
-    Fuzzy = 4,
+    Fuzzy = 2,
 
     /// <summary>
     /// Compares numbers as quantities instead of as written, exactly and without tolerance, so <c>1</c> matches
     /// <c>1.0</c>, <c>1.5E+10</c> matches <c>15000000000</c> and <c>-0</c> matches <c>0</c>. The JSON type is kept:
     /// <c>"1"</c> does not match <c>1</c>.
     /// </summary>
-    Numeric = 8
+    Numeric = 4
 }
