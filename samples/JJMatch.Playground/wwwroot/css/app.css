@@ -30,6 +30,24 @@ body {
     white-space: nowrap;
 }
 
+.snippet-label {
+    font-weight: 600;
+    margin: 0 0 0.25rem;
+}
+
+.snippet {
+    background: #f6f8fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    margin: 0 0 1rem;
+    overflow-x: auto;
+    padding: 0.5rem 0.75rem;
+    user-select: all;
+    white-space: pre;
+}
+
 .inputs {
     display: grid;
     gap: 1rem;
