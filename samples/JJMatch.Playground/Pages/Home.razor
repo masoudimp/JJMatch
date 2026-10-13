@@ -26,19 +26,18 @@
     <legend>Compare (neither selected means both)</legend>
     <label><input type="checkbox" @bind="structuralMatching" /> StructuralMatching</label>
     <label><input type="checkbox" @bind="valueMatching" /> ValueMatching</label>
-    <label><input type="checkbox" @bind="parseStringifiedJson" /> ParseStringifiedJson</label>
 </fieldset>
 
-<p class="snippet-label">Equivalent call (copy into your code):</p>
-<pre class="snippet"><code>@Snippet()</code></pre>
+<p class="snippet-label">C# for the selected settings (click to select, then copy):</p>
+<pre class="snippet"><code class="language-csharp">@Snippet()</code></pre>
 
 <div class="inputs">
     <label>
-        Left JSON
+        Expected JSON
         <textarea @bind="left" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 30 }"></textarea>
     </label>
     <label>
-        Right JSON
+        LLM response JSON
         <textarea @bind="right" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 31 }"></textarea>
     </label>
 </div>
@@ -97,7 +96,7 @@ else if (result is not null)
 
     private JJArrayMatchingMode arrayMode = JJArrayMatchingMode.Strict;
     private bool exact = true, normalized, fuzzy, numeric;
-    private bool structuralMatching = true, valueMatching = true, parseStringifiedJson;
+    private bool structuralMatching = true, valueMatching = true;
 
     private void Compare()
     {
@@ -132,26 +131,34 @@ else if (result is not null)
         return new JJMatchSettings
         {
             ArrayMode = arrayMode,
-            ValueMode = valueMode,
-            ParseStringifiedJson = parseStringifiedJson
+            ValueMode = valueMode
         };
     }
 
-    // The C# call that reproduces the selected settings, built from the same values Compare uses.
-    private string Snippet()
+    // The C# code that reproduces the selected settings, built from the same values Compare uses.
+    // Rendered as highlighted HTML; every token is an identifier or keyword, so no escaping is needed.
+    private MarkupString Snippet()
     {
         var options = Options();
         var settings = Settings();
         var optionsText = options == JJMatchOptions.All
-            ? nameof(JJMatchOptions) + "." + nameof(JJMatchOptions.All)
+            ? Member(nameof(JJMatchOptions), nameof(JJMatchOptions.All))
             : Flags<JJMatchOptions>(options);
         var valueModeText = settings.ValueMode == JJValueMatchingMode.None
-            ? nameof(JJValueMatchingMode) + "." + nameof(JJValueMatchingMode.None)
+            ? Member(nameof(JJValueMatchingMode), nameof(JJValueMatchingMode.None))
             : Flags<JJValueMatchingMode>(settings.ValueMode);
-        var parseText = settings.ParseStringifiedJson ? "true" : "false";
-        return $"JJMatcher.Match(left, right, {optionsText}, new JJMatchSettings {{ ArrayMode = "
-            + $"{nameof(JJArrayMatchingMode)}.{settings.ArrayMode}, ValueMode = {valueModeText}, "
-            + $"ParseStringifiedJson = {parseText} }});";
+        var arrayModeText = Member(nameof(JJArrayMatchingMode), settings.ArrayMode.ToString());
+        var varKeyword = Keyword("var");
+        var newKeyword = Keyword("new");
+        // Two dollar signs: {{ }} interpolates, so the single braces of the object initializer are literal.
+        return new MarkupString($$"""
+            {{varKeyword}} settings = {{newKeyword}} {{Type(nameof(JJMatchSettings))}}
+            {
+                ArrayMode = {{arrayModeText}},
+                ValueMode = {{valueModeText}}
+            };
+            {{varKeyword}} result = {{Type(nameof(JJMatcher))}}.Match(expectedJson, llmResponseJson, {{optionsText}}, settings);
+            """);
     }
 
     // Writes a non-zero flags value as "Type.A | Type.B" in declaration order.
@@ -160,9 +167,13 @@ else if (result is not null)
         var number = Convert.ToInt64(value, CultureInfo.InvariantCulture);
         var parts = Enum.GetValues<T>()
             .Where(member => Convert.ToInt64(member, CultureInfo.InvariantCulture) is var bit && bit != 0 && (number & bit) == bit)
-            .Select(member => typeof(T).Name + "." + member);
+            .Select(member => Member(typeof(T).Name, member.ToString()));
         return string.Join(" | ", parts);
     }
+
+    private static string Keyword(string text) => $"<span class=\"kw\">{text}</span>";
+    private static string Type(string text) => $"<span class=\"ty\">{text}</span>";
+    private static string Member(string type, string member) => Type(type) + "." + member;
 
     private static string Percent(double? value) =>
         value is null ? "n/a" : value.Value.ToString("R", CultureInfo.InvariantCulture) + "%";
