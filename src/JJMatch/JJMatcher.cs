@@ -71,11 +71,13 @@ public static class JJMatcher
     // endpoints exact in double arithmetic: no rounding/clamping is used to hide a mismatch.
     private static double Dice(int matched, int total) => 200d * matched / total;
 
-    // The public kind of an internal difference: the side that is absent decides, then the category.
+    // The public kind of an internal difference: a name-case pair decides first, then the side that is absent, then the category.
     private static JJDifferenceKind Kind(StructureDifference difference) =>
-        difference.Left is null ? JJDifferenceKind.Added
+        difference.MismatchType == StructureMismatchType.PropertyNameCaseMismatch ? JJDifferenceKind.PropertyNameCaseMismatch
+        : difference.Left is null ? JJDifferenceKind.Added
         : difference.Right is null ? JJDifferenceKind.Missing
         : difference.MismatchType == StructureMismatchType.ValueMismatch ? JJDifferenceKind.ValueMismatch
+        : difference.MismatchType == StructureMismatchType.ValueCaseMismatch ? JJDifferenceKind.ValueCaseMismatch
         : JJDifferenceKind.TypeMismatch;
 
     // Standard scoring is Dice over the node counts. Weighted scoring is Dice over node weights: a matched node weighs

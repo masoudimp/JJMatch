@@ -13,5 +13,11 @@ public enum JJDifferenceKind
     TypeMismatch,
 
     /// <summary>Both documents have a value of the same data type here, but the values differ.</summary>
-    ValueMismatch
+    ValueMismatch,
+
+    /// <summary>Both documents have the property, but its name differs only in case, outer white space or Unicode form.</summary>
+    PropertyNameCaseMismatch,
+
+    /// <summary>Both documents have a string value here, but it differs only in case, outer white space or Unicode form.</summary>
+    ValueCaseMismatch
 }
