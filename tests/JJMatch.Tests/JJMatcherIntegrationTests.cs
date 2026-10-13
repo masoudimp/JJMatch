@@ -170,6 +170,7 @@ public class JJMatcherIntegrationTests
         Assert.InRange(result.Score, 0, 100);
         Assert.Equal(result.Differences.Count == 0, result.IsMatch);
         Assert.Equal(result.Score == 100, result.IsMatch);
+        Assert.True(result.ElapsedMilliseconds >= 0);
     }
 
     [Fact]
@@ -504,7 +505,10 @@ public class JJMatcherIntegrationTests
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = -0.1 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = 1.1 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = double.NaN }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 129 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 0 }));
+        // The depth has no upper bound: the parser's former cap of 128 is accepted and above.
+        Assert.True(JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 129 }).IsMatch);
+        Assert.True(JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = int.MaxValue }).IsMatch);
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { ArrayMode = (JJArrayMatchingMode)9 }));
         Assert.Throws<InvalidOperationException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxInputLength = 1 }));
         Assert.Throws<InvalidOperationException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxNodes = 1 }));

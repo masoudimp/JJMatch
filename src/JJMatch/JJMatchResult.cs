@@ -3,12 +3,14 @@ namespace JJMatch;
 /// <summary>An immutable, detached comparison result.</summary>
 public sealed class JJMatchResult
 {
-    internal JJMatchResult(double score, IReadOnlyList<JJDifference> differences, double? structuralScore, double? valueScore)
+    internal JJMatchResult(double score, IReadOnlyList<JJDifference> differences, double? structuralScore, double? valueScore,
+        double elapsedMilliseconds)
     {
         Score = score;
         Differences = differences;
         StructuralMatchPercentage = structuralScore;
         ValueMatchPercentage = valueScore;
+        ElapsedMilliseconds = elapsedMilliseconds;
     }
 
     /// <summary>True exactly when no differences exist under the selected rules. Then Score is 100.</summary>
@@ -25,4 +27,7 @@ public sealed class JJMatchResult
 
     /// <summary>The value-aware document Score, including structural context, or null when value comparison is disabled. Not a separately weighted component.</summary>
     public double? ValueMatchPercentage { get; }
+
+    /// <summary>Wall-clock time the call took, in milliseconds, from validation through parsing, comparison and difference reporting.</summary>
+    public double ElapsedMilliseconds { get; }
 }

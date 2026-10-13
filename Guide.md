@@ -232,7 +232,7 @@ foreach (var difference in combined.Differences)
 
 **Input.** Pass JSON text, not a file path or an object's `ToString()`. Any valid JSON root is accepted. A root string whose content is a JSON object or array is decoded one layer automatically, so a stringified document compares equal to its plain form; strings nested inside a document stay literal. C# `null` throws `ArgumentNullException`; empty text, comments, trailing commas and malformed JSON throw `JsonException`.
 
-**Limits.** Defaults allow 1,000,000 UTF-16 characters per input, depth 64, 100,000 total nodes, 128 occurrences per side in an unordered or duplicate-property group, and a comparison work budget of 10,000,000. Settings can raise them: depth up to 128, total nodes up to 1,000,000 and assignment groups up to 256. Exceeding a limit throws `InvalidOperationException` (or `JsonException` for depth); a limit failure never returns an approximate score.
+**Limits.** Defaults allow 1,000,000 UTF-16 characters per input, depth 64, 100,000 total nodes, 128 occurrences per side in an unordered or duplicate-property group, and a comparison work budget of 10,000,000. Settings can raise them: depth without an upper bound, total nodes up to 1,000,000 and assignment groups up to 256. The comparison recurses once per nesting level, so a document deep enough for a very large depth can overflow the stack, which cannot be caught. Exceeding a limit throws `InvalidOperationException` (or `JsonException` for depth); a limit failure never returns an approximate score.
 
 ```csharp
 try
@@ -247,7 +247,7 @@ catch (InvalidOperationException exception)
 
 **Cancellation and validation.** `Match` accepts `cancellationToken:` and throws `OperationCanceledException` when cancelled. Unknown option bits and invalid settings throw argument exceptions; `ValueMode.None` is rejected when value comparison is enabled. Configure settings before calling and do not mutate shared settings during a call.
 
-**Result properties.** `StructuralMatchPercentage` is an independent structure-only diagnostic; `ValueMatchPercentage` is the value-aware document score, not a component to average with the structural one.
+**Result properties.** `StructuralMatchPercentage` is an independent structure-only diagnostic; `ValueMatchPercentage` is the value-aware document score, not a component to average with the structural one. `ElapsedMilliseconds` is the wall-clock time the call took, including parsing and difference reporting.
 
 ## 7. Next Steps
 
