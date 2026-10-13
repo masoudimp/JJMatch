@@ -1,0 +1,91 @@
+@page "/"
+@using System.Globalization
+@using System.Text.Json
+
+<PageTitle>JJMatch Playground</PageTitle>
+
+<h1>JJMatch Playground</h1>
+<p>Paste two JSON documents and compare them with <code>JJMatcher.Match</code> using its default rules.</p>
+
+<div class="inputs">
+    <label>
+        Left JSON
+        <textarea @bind="left" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 30 }"></textarea>
+    </label>
+    <label>
+        Right JSON
+        <textarea @bind="right" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 31 }"></textarea>
+    </label>
+</div>
+
+<button @onclick="Compare">Compare</button>
+
+@if (error is not null)
+{
+    <p class="error">@error</p>
+}
+else if (result is not null)
+{
+    <dl class="summary">
+        <dt>IsMatch</dt>
+        <dd>@result.IsMatch</dd>
+        <dt>Score</dt>
+        <dd>@Percent(result.Score)</dd>
+        <dt>StructuralMatchPercentage</dt>
+        <dd>@Percent(result.StructuralMatchPercentage)</dd>
+        <dt>ValueMatchPercentage</dt>
+        <dd>@Percent(result.ValueMatchPercentage)</dd>
+    </dl>
+
+    <h2>Differences (@result.Differences.Count)</h2>
+    @if (result.Differences.Count == 0)
+    {
+        <p>None.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr><th>Kind</th><th>Left path</th><th>Right path</th><th>Left value</th><th>Right value</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var difference in result.Differences)
+                {
+                    <tr>
+                        <td>@difference.Kind</td>
+                        <td>@difference.LeftPath</td>
+                        <td>@difference.RightPath</td>
+                        <td>@Raw(difference.LeftValue)</td>
+                        <td>@Raw(difference.RightValue)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private string left = "";
+    private string right = "";
+    private JJMatchResult? result;
+    private string? error;
+
+    private void Compare()
+    {
+        result = null;
+        error = null;
+        try
+        {
+            result = JJMatcher.Match(left, right);
+        }
+        catch (Exception exception)
+        {
+            error = $"{exception.GetType().Name}: {exception.Message}";
+        }
+    }
+
+    private static string Percent(double? value) =>
+        value is null ? "n/a" : value.Value.ToString("R", CultureInfo.InvariantCulture) + "%";
+
+    private static string Raw(JsonElement? element) => element?.GetRawText() ?? "";
+}
