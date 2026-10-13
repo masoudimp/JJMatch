@@ -2,8 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, '1.00']
-  pull_request:
+    branches: [main]
 
 jobs:
   test:
