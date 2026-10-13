@@ -7,117 +7,195 @@
 
 <PageTitle>JJMatch Playground</PageTitle>
 
-<h1>JJMatch Playground</h1>
-<p>Paste two JSON documents, choose the rules, and compare them with <code>JJMatcher.Match</code>.</p>
+<div class="container-xl py-4">
 
-<div class="inputs">
-    <label>
-        Expected JSON
-        <textarea @bind="left" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 30 }"></textarea>
-    </label>
-    <label>
-        LLM response JSON
-        <textarea @bind="right" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 31 }"></textarea>
-    </label>
-</div>
+<h1 class="h3">JJMatch Playground</h1>
+<p class="text-body-secondary">Paste two JSON documents, choose the rules, and compare them with <code>JJMatcher.Match</code>.</p>
 
-<details class="drawer">
-<summary>Settings</summary>
-
-<fieldset class="settings">
-    <legend>Arrays</legend>
-    <label><input type="radio" name="arrays" checked="@(arrayMode == JJArrayMatchingMode.Strict)" @onchange="() => arrayMode = JJArrayMatchingMode.Strict" /> Strict (order and count)</label>
-    <label><input type="radio" name="arrays" checked="@(arrayMode == JJArrayMatchingMode.Unordered)" @onchange="() => arrayMode = JJArrayMatchingMode.Unordered" /> Unordered (count only)</label>
-    <label><input type="radio" name="arrays" checked="@(arrayMode == JJArrayMatchingMode.StructureOnly)" @onchange="() => arrayMode = JJArrayMatchingMode.StructureOnly" /> StructureOnly (shapes only)</label>
-</fieldset>
-
-<fieldset class="settings">
-    <legend>Values (combined with OR)</legend>
-    <label><input type="checkbox" @bind="exact" /> Exact</label>
-    <label><input type="checkbox" @bind="normalized" /> Normalized</label>
-    <label><input type="checkbox" @bind="fuzzy" /> Fuzzy</label>
-    <label><input type="checkbox" @bind="numeric" /> Numeric</label>
-    <label>FuzzyThreshold (0 to 1, least similarity Fuzzy accepts) <input type="number" min="0" max="1" step="0.05" @bind="fuzzyThreshold" /></label>
-</fieldset>
-
-<fieldset class="settings">
-    <legend>Property names</legend>
-    <label><input type="radio" name="names" checked="@(nameMode == JJPropertyNameMatchingMode.Exact)" @onchange="() => nameMode = JJPropertyNameMatchingMode.Exact" /> Exact (character by character)</label>
-    <label><input type="radio" name="names" checked="@(nameMode == JJPropertyNameMatchingMode.Normalized)" @onchange="() => nameMode = JJPropertyNameMatchingMode.Normalized" /> Normalized (case, outer white space and Unicode form ignored)</label>
-</fieldset>
-
-<fieldset class="settings">
-    <legend>Compare (neither selected means both)</legend>
-    <label><input type="checkbox" @bind="structuralMatching" /> StructuralMatching</label>
-    <label><input type="checkbox" @bind="valueMatching" /> ValueMatching</label>
-</fieldset>
-
-<fieldset class="settings">
-    <legend>Limits</legend>
-    <label>MaxDepth (at least 1) <input type="number" min="1" @bind="maxDepth" /></label>
-</fieldset>
-
-<div class="snippets">
-    <div>
-        <p class="snippet-label">C# for the selected settings <button class="copy" @onclick="() => Copy(Snippet())">Copy</button></p>
-        <pre class="snippet"><code class="language-csharp">@Snippet()</code></pre>
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <label class="form-label fw-semibold" for="left">Expected JSON</label>
+        <textarea id="left" class="form-control font-monospace json-input" @bind="left" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 30 }"></textarea>
     </div>
-    <div>
-        <p class="snippet-label">JJSetting.json for the selected settings <button class="copy" @onclick="() => Copy(SettingsJson())">Copy</button></p>
-        <pre class="snippet"><code class="language-json">@SettingsJson()</code></pre>
-        <p class="note">Load it with <code>JJMatchSettings.FromJson(File.ReadAllText("JJSetting.json"))</code>.</p>
+    <div class="col-md-6">
+        <label class="form-label fw-semibold" for="right">LLM response JSON</label>
+        <textarea id="right" class="form-control font-monospace json-input" @bind="right" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 31 }"></textarea>
     </div>
 </div>
 
+<details class="drawer card mb-3">
+<summary class="card-header fw-semibold">Settings</summary>
+<div class="card-body">
+
+<div class="row g-4 mb-4">
+    <fieldset class="col-md-6 col-xl-4">
+        <legend class="fs-6 fw-semibold">Arrays</legend>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="arrays" id="arrays-strict" checked="@(arrayMode == JJArrayMatchingMode.Strict)" @onchange="() => arrayMode = JJArrayMatchingMode.Strict" />
+            <label class="form-check-label" for="arrays-strict">Strict (order and count)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="arrays" id="arrays-unordered" checked="@(arrayMode == JJArrayMatchingMode.Unordered)" @onchange="() => arrayMode = JJArrayMatchingMode.Unordered" />
+            <label class="form-check-label" for="arrays-unordered">Unordered (count only)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="arrays" id="arrays-structure" checked="@(arrayMode == JJArrayMatchingMode.StructureOnly)" @onchange="() => arrayMode = JJArrayMatchingMode.StructureOnly" />
+            <label class="form-check-label" for="arrays-structure">StructureOnly (shapes only)</label>
+        </div>
+    </fieldset>
+
+    <fieldset class="col-md-6 col-xl-4">
+        <legend class="fs-6 fw-semibold">Values (identical always match; rules combined with OR)</legend>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="values-normalized" @bind="normalized" />
+            <label class="form-check-label" for="values-normalized">Normalized</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="values-fuzzy" @bind="fuzzy" />
+            <label class="form-check-label" for="values-fuzzy">Fuzzy</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="values-numeric" @bind="numeric" />
+            <label class="form-check-label" for="values-numeric">Numeric</label>
+        </div>
+        <label class="form-label mt-2 mb-1" for="fuzzy-threshold">FuzzyThreshold <span class="text-body-secondary">(0 to 1, least similarity Fuzzy accepts)</span></label>
+        <input class="form-control form-control-sm number-input" type="number" id="fuzzy-threshold" min="0" max="1" step="0.05" @bind="fuzzyThreshold" />
+    </fieldset>
+
+    <fieldset class="col-md-6 col-xl-4">
+        <legend class="fs-6 fw-semibold">Property names</legend>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="names" id="names-exact" checked="@(nameMode == JJPropertyNameMatchingMode.Exact)" @onchange="() => nameMode = JJPropertyNameMatchingMode.Exact" />
+            <label class="form-check-label" for="names-exact">Exact (character by character)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="names" id="names-normalized" checked="@(nameMode == JJPropertyNameMatchingMode.Normalized)" @onchange="() => nameMode = JJPropertyNameMatchingMode.Normalized" />
+            <label class="form-check-label" for="names-normalized">Normalized (case, outer white space and Unicode form ignored)</label>
+        </div>
+    </fieldset>
+
+    <fieldset class="col-md-6 col-xl-4">
+        <legend class="fs-6 fw-semibold">Compare (neither selected means both)</legend>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="compare-structural" @bind="structuralMatching" />
+            <label class="form-check-label" for="compare-structural">StructuralMatching</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="compare-value" @bind="valueMatching" />
+            <label class="form-check-label" for="compare-value">ValueMatching</label>
+        </div>
+    </fieldset>
+
+    <fieldset class="col-md-6 col-xl-4">
+        <legend class="fs-6 fw-semibold">Limits</legend>
+        <label class="form-label mb-1" for="max-depth">MaxDepth <span class="text-body-secondary">(at least 1)</span></label>
+        <input class="form-control form-control-sm number-input" type="number" id="max-depth" min="1" @bind="maxDepth" />
+    </fieldset>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fw-semibold">C# for the selected settings</span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="() => Copy(Snippet())">Copy</button>
+        </div>
+        <pre class="snippet border rounded bg-body-tertiary p-2 mb-0"><code class="language-csharp">@Snippet()</code></pre>
+    </div>
+    <div class="col-lg-6">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fw-semibold">JJSetting.json for the selected settings</span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="() => Copy(SettingsJson())">Copy</button>
+        </div>
+        <pre class="snippet border rounded bg-body-tertiary p-2 mb-0"><code class="language-json">@SettingsJson()</code></pre>
+        <p class="form-text mb-0">Load it with <code>JJMatchSettings.FromJson(File.ReadAllText("JJSetting.json"))</code>.</p>
+    </div>
+</div>
+
+</div>
 </details>
 
-<button @onclick="Compare">Compare</button>
+<button class="btn btn-primary mb-3" @onclick="Compare">Compare</button>
 
 @if (error is not null)
 {
-    <p class="error">@error</p>
+    <div class="alert alert-danger font-monospace error" role="alert">@error</div>
 }
 else if (result is not null)
 {
-    <dl class="summary">
-        <dt>IsMatch</dt>
-        <dd>@result.IsMatch</dd>
-        <dt>Score</dt>
-        <dd>@Percent(result.Score)</dd>
-        <dt>StructuralMatchPercentage</dt>
-        <dd>@Percent(result.StructuralMatchPercentage)</dd>
-        <dt>ValueMatchPercentage</dt>
-        <dd>@Percent(result.ValueMatchPercentage)</dd>
-        <dt>ElapsedMilliseconds</dt>
-        <dd>@result.ElapsedMilliseconds.ToString("0.###", CultureInfo.InvariantCulture) ms</dd>
-    </dl>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body py-2">
+                    <div class="small text-body-secondary text-break">IsMatch</div>
+                    <span class="badge fs-6 @(result.IsMatch ? "text-bg-success" : "text-bg-danger")">@result.IsMatch</span>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body py-2">
+                    <div class="small text-body-secondary text-break">Score</div>
+                    <div class="fs-5 text-break">@Percent(result.Score)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body py-2">
+                    <div class="small text-body-secondary text-break">StructuralMatchPercentage</div>
+                    <div class="fs-5 text-break">@Percent(result.StructuralMatchPercentage)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body py-2">
+                    <div class="small text-body-secondary text-break">ValueMatchPercentage</div>
+                    <div class="fs-5 text-break">@Percent(result.ValueMatchPercentage)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body py-2">
+                    <div class="small text-body-secondary text-break">ElapsedMilliseconds</div>
+                    <div class="fs-5 text-break">@result.ElapsedMilliseconds.ToString("0.###", CultureInfo.InvariantCulture) ms</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <h2>Differences (@result.Differences.Count)</h2>
+    <h2 class="h5">Differences <span class="badge text-bg-secondary">@result.Differences.Count</span></h2>
     @if (result.Differences.Count == 0)
     {
-        <p>None.</p>
+        <p class="text-body-secondary">None.</p>
     }
     else
     {
-        <table>
-            <thead>
-                <tr><th>Kind</th><th>Left path</th><th>Right path</th><th>Left value</th><th>Right value</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var difference in result.Differences)
-                {
-                    <tr>
-                        <td>@difference.Kind</td>
-                        <td>@difference.LeftPath</td>
-                        <td>@difference.RightPath</td>
-                        <td>@Raw(difference.LeftValue)</td>
-                        <td>@Raw(difference.RightValue)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped table-hover">
+                <thead>
+                    <tr><th>Kind</th><th>ScoreWeight</th><th>Left path</th><th>Right path</th><th>Left value</th><th>Right value</th></tr>
+                </thead>
+                <tbody class="font-monospace small text-break">
+                    @foreach (var difference in result.Differences)
+                    {
+                        <tr>
+                            <td>@difference.Kind</td>
+                            <td>@difference.ScoreWeight</td>
+                            <td>@difference.LeftPath</td>
+                            <td>@difference.RightPath</td>
+                            <td>@Raw(difference.LeftValue)</td>
+                            <td>@Raw(difference.RightValue)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     }
 }
+
+</div>
 
 @code {
     private string left = "";
@@ -127,7 +205,7 @@ else if (result is not null)
 
     private JJArrayMatchingMode arrayMode = JJArrayMatchingMode.Strict;
     private JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.Exact;
-    private bool exact = true, normalized, fuzzy, numeric;
+    private bool normalized, fuzzy, numeric;
     private bool structuralMatching = true, valueMatching = true;
     private int maxDepth = new JJMatchSettings().MaxDepth;
     private double fuzzyThreshold = new JJMatchSettings().FuzzyThreshold;
@@ -158,7 +236,6 @@ else if (result is not null)
     private JJMatchSettings Settings()
     {
         var valueMode = JJValueMatchingMode.None;
-        if (exact) valueMode |= JJValueMatchingMode.Exact;
         if (normalized) valueMode |= JJValueMatchingMode.Normalized;
         if (fuzzy) valueMode |= JJValueMatchingMode.Fuzzy;
         if (numeric) valueMode |= JJValueMatchingMode.Numeric;

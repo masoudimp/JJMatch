@@ -256,7 +256,7 @@ public class StressTestingJsonsTests
         {
             Assert.True(MatchesUnder(JJValueMatchingMode.Fuzzy, left, right), left.Value);
             Assert.True(MatchesUnder(JJValueMatchingMode.Fuzzy, right, left), left.Value);
-            Assert.False(MatchesUnder(JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized, left, right), left.Value);
+            Assert.False(MatchesUnder(JJValueMatchingMode.Normalized, left, right), left.Value);
         }
 
         // The three Normalized scenarios are no edit apart, so Fuzzy accepts them too.
@@ -296,7 +296,7 @@ public class StressTestingJsonsTests
         foreach (var name in new[] { "noncharacters", "loneHighSurrogate", "loneLowSurrogate", "reversedSurrogatePair", "highSurrogateThenLetter" })
         {
             Assert.Equal(Child(left, name).Value, Child(right, name).Value);
-            foreach (var mode in new[] { JJValueMatchingMode.Exact, JJValueMatchingMode.Normalized, JJValueMatchingMode.Fuzzy })
+            foreach (var mode in new[] { JJValueMatchingMode.None, JJValueMatchingMode.Normalized, JJValueMatchingMode.Fuzzy })
             {
                 Assert.True(MatchesUnder(mode, Child(left, name), Child(right, name)), $"{name} under {mode}");
             }

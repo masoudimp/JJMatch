@@ -10,8 +10,8 @@ internal static class ValueMatcher
 {
     /// <summary>
     /// Returns whether the values of <paramref name="left"/> and <paramref name="right"/> are equal under <paramref name="mode"/>.
-    /// Each flag of the mode is one rule, and the values are equal when any rule that is set holds;
-    /// <see cref="JJValueMatchingMode.None"/> matches nothing. Neither node is changed. A cache keeps the
+    /// Identical values are always equal; each flag of the mode is one further rule, and the values are equal when
+    /// any rule that is set holds, so <see cref="JJValueMatchingMode.None"/> accepts identical values only. Neither node is changed. A cache keeps the
     /// normalized and folded texts of a node across the many pairs of a group. The fuzzy threshold is the least
     /// similarity <see cref="JJValueMatchingMode.Fuzzy"/> accepts, from 0 to 1; the parameter overrides every
     /// other source of it, the public API passes <see cref="JJMatchSettings.FuzzyThreshold"/>, and omitting it
@@ -22,7 +22,7 @@ internal static class ValueMatcher
     {
         budget?.Spend(1L + (left.Value?.Length ?? 0) + (right.Value?.Length ?? 0));
         // Each further mode adds one clause here, so that a pair matches when any enabled rule accepts it.
-        return ((mode & JJValueMatchingMode.Exact) != 0 && MatchExact(left, right))
+        return MatchExact(left, right)
             || ((mode & JJValueMatchingMode.Normalized) != 0 && MatchNormalized(left, right, cache))
             || ((mode & JJValueMatchingMode.Fuzzy) != 0 && MatchFuzzy(left, right, fuzzyThreshold, budget, cache))
             || ((mode & JJValueMatchingMode.Numeric) != 0 && MatchNumeric(left, right, budget));

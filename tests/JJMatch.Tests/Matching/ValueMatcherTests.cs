@@ -47,7 +47,7 @@ public class ValueMatcherTests
         global::JJMatch.ValueMatcher.MatchValues(left, right, JJValueMatchingMode.Normalized);
 
     private static bool MatchesExactly(JsonStructureNode left, JsonStructureNode right) =>
-        global::JJMatch.ValueMatcher.MatchValues(left, right, JJValueMatchingMode.Exact);
+        global::JJMatch.ValueMatcher.MatchValues(left, right, JJValueMatchingMode.None);
 
     private static bool MatchesNumerically(JsonStructureNode left, JsonStructureNode right) =>
         global::JJMatch.ValueMatcher.MatchValues(left, right, JJValueMatchingMode.Numeric);
@@ -200,11 +200,11 @@ public class ValueMatcherTests
         Assert.Equal(JsonValueKind.Null, RightValue("nullValue").ValueKind);
         Assert.False(Matches(LeftValue("nullText"), RightValue("nullValue")));
 
-        // Normalized is a rule for strings only: it says nothing about two numbers, Booleans or nulls, even equal
-        // ones. Exact decides those.
-        Assert.False(Section("numberValue"));
-        Assert.False(Section("booleanValue"));
-        Assert.False(Section("nullValue"));
+        // Normalized is a rule for strings only, but identical values match under every mode, so two equal
+        // numbers, Booleans or nulls still match.
+        Assert.True(Section("numberValue"));
+        Assert.True(Section("booleanValue"));
+        Assert.True(Section("nullValue"));
     }
 
     [Fact]
@@ -323,13 +323,12 @@ public class ValueMatcherTests
     }
 
     [Theory]
-    [InlineData(JJValueMatchingMode.Exact)]
+    [InlineData(JJValueMatchingMode.None)]
     [InlineData(JJValueMatchingMode.Normalized)]
     [InlineData(JJValueMatchingMode.Numeric)]
     [InlineData(JJValueMatchingMode.Fuzzy)]
-    [InlineData(JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized)]
-    [InlineData(JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized | JJValueMatchingMode.Numeric)]
-    [InlineData(JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric)]
+    [InlineData(JJValueMatchingMode.Normalized | JJValueMatchingMode.Numeric)]
+    [InlineData(JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric)]
     public void Result_is_deterministic_and_symmetric(JJValueMatchingMode mode)
     {
         var leaves = Leaves(Tree(Left)).Concat(Leaves(Tree(Right))).ToList();
@@ -385,7 +384,6 @@ public class ValueMatcherTests
         Assert.Equal(
             [
                 JJValueMatchingMode.None,
-                JJValueMatchingMode.Exact,
                 JJValueMatchingMode.Normalized,
                 JJValueMatchingMode.Fuzzy,
                 JJValueMatchingMode.Numeric,
@@ -396,20 +394,20 @@ public class ValueMatcherTests
         var flags = modes.Where(mode => mode != JJValueMatchingMode.None).Select(mode => (int)mode).ToList();
         Assert.All(flags, flag => Assert.True(flag > 0 && (flag & (flag - 1)) == 0, $"{flag} is not a power of two"));
         Assert.Equal(flags.Count, flags.Distinct().Count());
-        Assert.Equal([1, 2, 4, 8], flags);
+        Assert.Equal([1, 2, 4], flags);
     }
 
     [Fact]
-    public void Exact_and_normalized_are_separate_flags()
+    public void Normalized_and_fuzzy_are_separate_flags()
     {
-        var both = JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized;
+        var both = JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy;
 
-        Assert.True(both.HasFlag(JJValueMatchingMode.Exact));
         Assert.True(both.HasFlag(JJValueMatchingMode.Normalized));
+        Assert.True(both.HasFlag(JJValueMatchingMode.Fuzzy));
         Assert.NotEqual(JJValueMatchingMode.Normalized, both);
 
-        Assert.False(JJValueMatchingMode.Normalized.HasFlag(JJValueMatchingMode.Exact));
-        Assert.False(JJValueMatchingMode.Exact.HasFlag(JJValueMatchingMode.Normalized));
+        Assert.False(JJValueMatchingMode.Normalized.HasFlag(JJValueMatchingMode.Fuzzy));
+        Assert.False(JJValueMatchingMode.Fuzzy.HasFlag(JJValueMatchingMode.Normalized));
 
         // None is in every mode only in the trivial sense of HasFlag; it holds no mode itself.
         Assert.Equal(JJValueMatchingMode.None, JJValueMatchingMode.None & both);
@@ -428,27 +426,20 @@ public class ValueMatcherTests
         // value beside Normalized does not take it away.
         Assert.True(global::JJMatch.ValueMatcher.MatchValues(left, right, JJValueMatchingMode.Normalized | JJValueMatchingMode.Numeric));
         Assert.True(global::JJMatch.ValueMatcher.MatchValues(left, right, JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric));
-        Assert.True(global::JJMatch.ValueMatcher.MatchValues(left, right, JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized));
     }
 
     [Fact]
-    public void None_matches_nothing()
+    public void None_accepts_identical_values_only()
     {
         var left = LeftValue("casing");
         var right = RightValue("casing");
         var identical = Tree(Left.GetProperty("customer")).Children.Single(child => child.PropertyName == "name");
 
-        // None holds no rule: it does not make even identical strings equal.
+        // None relaxes nothing: identical strings are equal, and "Masoud" against "masoud" is not.
         Assert.False(global::JJMatch.ValueMatcher.MatchValues(left, right, JJValueMatchingMode.None));
-        Assert.False(global::JJMatch.ValueMatcher.MatchValues(identical, identical, JJValueMatchingMode.None));
-        Assert.False(global::JJMatch.ValueMatcher.MatchValues(left, left, JJValueMatchingMode.None));
-
-        // The former zero value of Exact must not be read as Normalized: a mode holding only Exact is Exact, which
-        // accepts identical strings and rejects "Masoud" against "masoud", and 2 alone is Normalized.
-        Assert.False(global::JJMatch.ValueMatcher.MatchValues(left, right, (JJValueMatchingMode)1));
-        Assert.True(global::JJMatch.ValueMatcher.MatchValues(left, left, (JJValueMatchingMode)1));
-        Assert.True(global::JJMatch.ValueMatcher.MatchValues(identical, identical, (JJValueMatchingMode)1));
-        Assert.True(global::JJMatch.ValueMatcher.MatchValues(left, right, (JJValueMatchingMode)2));
+        Assert.True(global::JJMatch.ValueMatcher.MatchValues(identical, identical, JJValueMatchingMode.None));
+        Assert.True(global::JJMatch.ValueMatcher.MatchValues(left, left, JJValueMatchingMode.None));
+        Assert.True(global::JJMatch.ValueMatcher.MatchValues(left, right, JJValueMatchingMode.Normalized));
     }
 
     [Fact]
@@ -663,7 +654,7 @@ public class ValueMatcherTests
         // The intact pair is identical; the damaged one equals nothing, itself and JSON null included, both ways
         // round and under every implemented mode.
         Assert.True(MatchesExactly(intactLeft, intactRight));
-        foreach (var mode in new[] { JJValueMatchingMode.Exact, JJValueMatchingMode.Normalized, JJValueMatchingMode.Fuzzy, JJValueMatchingMode.Numeric, JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric })
+        foreach (var mode in new[] { JJValueMatchingMode.None, JJValueMatchingMode.Normalized, JJValueMatchingMode.Fuzzy, JJValueMatchingMode.Numeric, JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric })
         {
             Assert.False(global::JJMatch.ValueMatcher.MatchValues(damaged, damaged, mode));
             Assert.False(global::JJMatch.ValueMatcher.MatchValues(damaged, intactRight, mode));
@@ -713,9 +704,9 @@ public class ValueMatcherTests
     }
 
     [Fact]
-    public void Exact_or_normalized_accepts_a_pair_that_either_rule_accepts()
+    public void Normalized_accepts_a_pair_that_identity_or_its_rule_accepts()
     {
-        var both = JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized;
+        var both = JJValueMatchingMode.Normalized;
         bool Both(JsonStructureNode left, JsonStructureNode right) => global::JJMatch.ValueMatcher.MatchValues(left, right, both);
 
         // Accepted by Normalized only: "Masoud" against "masoud", "café" in two Unicode forms.
@@ -724,11 +715,10 @@ public class ValueMatcherTests
         Assert.True(Both(LeftValue("casing"), RightValue("casing")));
         Assert.True(Both(LeftValue("composed"), RightValue("composed")));
 
-        // Accepted by Exact only: 123 against 123, true against true, null against null.
+        // Accepted because they are identical: 123 against 123, true against true, null against null.
         foreach (var name in new[] { "numberValue", "booleanValue", "nullValue" })
         {
             Assert.True(ExactSection(name));
-            Assert.False(Section(name));
             Assert.True(Both(LeftValue(name), RightValue(name)));
         }
 
@@ -738,8 +728,7 @@ public class ValueMatcherTests
         Assert.False(Both(LeftValue("innerSpace"), RightValue("innerSpace")));
         Assert.False(Both(LeftValue("numberText"), RightValue("numberValue")));
 
-        // The order of the flags changes nothing.
-        Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftValue("numberValue"), RightValue("numberValue"), JJValueMatchingMode.Normalized | JJValueMatchingMode.Exact));
+        // Another rule beside Normalized changes nothing.
         Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftValue("casing"), RightValue("casing"), both | JJValueMatchingMode.Fuzzy));
     }
 
@@ -931,11 +920,11 @@ public class ValueMatcherTests
         Assert.False(MatchesNumerically(LeftValue("nullValue"), zero));
         Assert.False(MatchesNumerically(LeftValue("nullValue"), RightNumber("signedZero")));
 
-        // Numeric is a rule for two numbers only: identical strings, Booleans, nulls, objects and arrays are not
-        // decided by it, and a number never equals a container.
-        Assert.False(MatchesNumerically(LeftValue("numberText"), RightValue("numberText")));
-        Assert.False(MatchesNumerically(LeftValue("booleanValue"), RightValue("booleanValue")));
-        Assert.False(MatchesNumerically(LeftValue("nullValue"), RightValue("nullValue")));
+        // Numeric is a rule for two numbers only, but identical values match under every mode, so identical
+        // strings, Booleans and nulls still match. Objects and arrays never do, and a number never equals a container.
+        Assert.True(MatchesNumerically(LeftValue("numberText"), RightValue("numberText")));
+        Assert.True(MatchesNumerically(LeftValue("booleanValue"), RightValue("booleanValue")));
+        Assert.True(MatchesNumerically(LeftValue("nullValue"), RightValue("nullValue")));
         Assert.False(MatchesNumerically(LeftValue("deep"), RightValue("deep")));
         Assert.False(MatchesNumerically(LeftNumber("amounts"), RightNumber("amounts")));
         Assert.False(MatchesNumerically(LeftNumber("integerDecimal"), LeftNumber("amounts")));
@@ -985,12 +974,12 @@ public class ValueMatcherTests
     }
 
     [Fact]
-    public void Numeric_combines_with_exact_and_normalized_by_or()
+    public void Numeric_combines_with_normalized_by_or()
     {
-        var all = JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized | JJValueMatchingMode.Numeric;
+        var all = JJValueMatchingMode.Normalized | JJValueMatchingMode.Numeric;
         bool All(JsonStructureNode left, JsonStructureNode right) => global::JJMatch.ValueMatcher.MatchValues(left, right, all);
 
-        // Accepted by Numeric only: 123 against 123.0. By Normalized only: "Masoud" against "masoud". By Exact only:
+        // Accepted by Numeric only: 123 against 123.0. By Normalized only: "Masoud" against "masoud". Identical:
         // true against true, null against null.
         Assert.False(ExactSection("casing"));
         Assert.False(MatchesNumerically(LeftValue("casing"), RightValue("casing")));
@@ -998,7 +987,7 @@ public class ValueMatcherTests
         Assert.False(MatchesExactly(LeftNumber("integerDecimal"), RightNumber("integerDecimal")));
         Assert.False(Matches(LeftNumber("integerDecimal"), RightNumber("integerDecimal")));
         Assert.True(All(LeftNumber("integerDecimal"), RightNumber("integerDecimal")));
-        Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftNumber("integerDecimal"), RightNumber("integerDecimal"), JJValueMatchingMode.Exact | JJValueMatchingMode.Numeric));
+        Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftNumber("integerDecimal"), RightNumber("integerDecimal"), JJValueMatchingMode.Numeric));
         Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftNumber("integerDecimal"), RightNumber("integerDecimal"), JJValueMatchingMode.Normalized | JJValueMatchingMode.Numeric));
         Assert.True(All(LeftValue("booleanValue"), RightValue("booleanValue")));
         Assert.True(All(LeftValue("nullValue"), RightValue("nullValue")));
@@ -1008,9 +997,9 @@ public class ValueMatcherTests
         Assert.False(All(LeftNumber("hugeExponent"), RightNumber("hugeExponent")));
         Assert.False(All(LeftValue("innerSpace"), RightValue("innerSpace")));
 
-        // Exact and Normalized are unchanged with Numeric beside them, and Fuzzy never decides two numbers.
-        Assert.False(global::JJMatch.ValueMatcher.MatchValues(LeftNumber("integerDecimal"), RightNumber("integerDecimal"), JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized));
-        Assert.False(global::JJMatch.ValueMatcher.MatchValues(LeftValue("casing"), RightValue("casing"), JJValueMatchingMode.Exact | JJValueMatchingMode.Numeric));
+        // Normalized is unchanged with Numeric beside it, and Fuzzy never decides two numbers.
+        Assert.False(global::JJMatch.ValueMatcher.MatchValues(LeftNumber("integerDecimal"), RightNumber("integerDecimal"), JJValueMatchingMode.Normalized));
+        Assert.False(global::JJMatch.ValueMatcher.MatchValues(LeftValue("casing"), RightValue("casing"), JJValueMatchingMode.Numeric));
         Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftNumber("scientific"), RightNumber("scientific"), JJValueMatchingMode.Numeric | JJValueMatchingMode.Fuzzy));
         Assert.False(global::JJMatch.ValueMatcher.MatchValues(LeftNumber("scientific"), RightNumber("scientific"), JJValueMatchingMode.Fuzzy));
     }
@@ -1217,16 +1206,18 @@ public class ValueMatcherTests
     [Fact]
     public void Fuzzy_never_matches_values_of_other_json_types()
     {
-        // "123" against 123, true against true, null against null, 123 against 123.0: Fuzzy is a rule for two
-        // strings only, so nothing is coerced and no other kind is decided by it, not even identical values.
+        // "123" against 123, "true" against true, "null" against null, 123 against 123.0: Fuzzy is a rule for two
+        // strings only, so nothing is coerced and no other kind is relaxed by it.
         Assert.False(MatchesFuzzily(LeftValue("numberText"), RightValue("numberValue")));
         Assert.False(MatchesFuzzily(LeftValue("booleanText"), RightValue("booleanValue")));
         Assert.False(MatchesFuzzily(LeftValue("nullText"), RightValue("nullValue")));
-        Assert.False(MatchesFuzzily(LeftValue("numberValue"), RightValue("numberValue")));
-        Assert.False(MatchesFuzzily(LeftValue("booleanValue"), RightValue("booleanValue")));
-        Assert.False(MatchesFuzzily(LeftValue("nullValue"), RightValue("nullValue")));
         Assert.False(MatchesFuzzily(LeftNumber("integerDecimal"), RightNumber("integerDecimal")));
-        Assert.False(MatchesFuzzily(LeftNumber("scientific"), LeftNumber("scientific")));
+
+        // Identical values match under every mode: 123 against 123, true against true, null against null.
+        Assert.True(MatchesFuzzily(LeftValue("numberValue"), RightValue("numberValue")));
+        Assert.True(MatchesFuzzily(LeftValue("booleanValue"), RightValue("booleanValue")));
+        Assert.True(MatchesFuzzily(LeftValue("nullValue"), RightValue("nullValue")));
+        Assert.True(MatchesFuzzily(LeftNumber("scientific"), LeftNumber("scientific")));
 
         // Objects and arrays never match, whatever they hold.
         Assert.False(MatchesFuzzily(LeftValue("deep"), RightValue("deep")));
@@ -1304,16 +1295,16 @@ public class ValueMatcherTests
     [Fact]
     public void Fuzzy_combines_with_the_other_modes_by_or()
     {
-        var all = JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric;
+        var all = JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric;
         bool All(JsonStructureNode left, JsonStructureNode right) => global::JJMatch.ValueMatcher.MatchValues(left, right, all);
 
-        // Accepted by Fuzzy only: "Jon Smith" against "John Smith". By Numeric only: 123 against 123.0. By Exact
-        // only: true against true.
+        // Accepted by Fuzzy only: "Jon Smith" against "John Smith". By Numeric only: 123 against 123.0. Identical:
+        // true against true.
         Assert.False(MatchesExactly(LeftFuzzy("typo"), RightFuzzy("typo")));
         Assert.False(Matches(LeftFuzzy("typo"), RightFuzzy("typo")));
         Assert.False(MatchesNumerically(LeftFuzzy("typo"), RightFuzzy("typo")));
         Assert.True(All(LeftFuzzy("typo"), RightFuzzy("typo")));
-        Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftFuzzy("typo"), RightFuzzy("typo"), JJValueMatchingMode.Exact | JJValueMatchingMode.Fuzzy));
+        Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftFuzzy("typo"), RightFuzzy("typo"), JJValueMatchingMode.Fuzzy));
         Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftFuzzy("typo"), RightFuzzy("typo"), JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric));
         Assert.True(All(LeftNumber("integerDecimal"), RightNumber("integerDecimal")));
         Assert.True(All(LeftValue("booleanValue"), RightValue("booleanValue")));
@@ -1324,7 +1315,7 @@ public class ValueMatcherTests
         Assert.False(All(LeftNumber("hugeExponent"), RightNumber("hugeExponent")));
 
         // The other rules are unchanged with Fuzzy beside them, and Numeric never decides two strings.
-        Assert.False(global::JJMatch.ValueMatcher.MatchValues(LeftFuzzy("typo"), RightFuzzy("typo"), JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized | JJValueMatchingMode.Numeric));
+        Assert.False(global::JJMatch.ValueMatcher.MatchValues(LeftFuzzy("typo"), RightFuzzy("typo"), JJValueMatchingMode.Normalized | JJValueMatchingMode.Numeric));
         Assert.False(global::JJMatch.ValueMatcher.MatchValues(LeftNumber("integerDecimal"), RightNumber("integerDecimal"), JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Normalized));
         Assert.True(global::JJMatch.ValueMatcher.MatchValues(LeftFuzzy("typo"), RightFuzzy("typo"), JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric));
         Assert.False(global::JJMatch.ValueMatcher.MatchValues(LeftFuzzy("typo"), RightFuzzy("typo"), JJValueMatchingMode.Numeric));

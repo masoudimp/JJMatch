@@ -8,8 +8,11 @@ public sealed class JJMatchSettings
     /// <summary>Array policy. The public API defaults to ordered, count-preserving comparison.</summary>
     public JJArrayMatchingMode ArrayMode { get; set; } = JJArrayMatchingMode.Strict;
 
-    /// <summary>Primitive value rules, combined by OR. Defaults to Exact.</summary>
-    public JJValueMatchingMode ValueMode { get; set; } = JJValueMatchingMode.Exact;
+    /// <summary>
+    /// Primitive value rules, combined by OR, each accepting further pairs on top of identical values, which always
+    /// match. Defaults to None: identical values only.
+    /// </summary>
+    public JJValueMatchingMode ValueMode { get; set; } = JJValueMatchingMode.None;
 
     /// <summary>Property name rule. Defaults to Exact, so names are compared character by character.</summary>
     public JJPropertyNameMatchingMode PropertyNameMode { get; set; } = JJPropertyNameMatchingMode.Exact;
@@ -19,6 +22,21 @@ public sealed class JJMatchSettings
     /// longer text. Defaults to 0.8, one edit for every five characters; 1 allows no edit and 0 accepts any two strings.
     /// </summary>
     public double FuzzyThreshold { get; set; } = ValueMatcher.DefaultFuzzyThreshold;
+
+    private JJScoringSettings _scoring = new JJScoringSettings();
+
+    /// <summary>
+    /// How the score is computed. Never null: a new settings object holds a configuration selecting
+    /// <see cref="JJScoringMode.Standard"/> scoring with the default weights, and assigning null throws. Set
+    /// <see cref="JJScoringSettings.Mode"/> to <see cref="JJScoringMode.Weighted"/> and adjust the weights to make
+    /// some kinds of difference lower the score less than others.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">The value is null.</exception>
+    public JJScoringSettings Scoring
+    {
+        get => _scoring;
+        set => _scoring = value ?? throw new ArgumentNullException(nameof(value));
+    }
 
     /// <summary>
     /// Maximum container depth of each parsed document, at least 1, with no upper bound. Defaults to 64. The comparison
@@ -41,9 +59,10 @@ public sealed class JJMatchSettings
     /// <summary>
     /// Reads settings from a JSON object, such as the content of a <c>JJSetting.json</c> file. Each property is
     /// named like the property here, ignoring case, and an omitted property keeps its default. Modes are written as
-    /// member names (<c>"Unordered"</c>); value rules are joined by <c>|</c> or <c>,</c> (<c>"Exact | Numeric"</c>).
-    /// Limits are integers and <see cref="FuzzyThreshold"/> a number. The result is validated like settings passed
-    /// to <see cref="JJMatcher.Match"/>.
+    /// member names (<c>"Unordered"</c>); value rules are joined by <c>|</c> or <c>,</c> (<c>"Normalized | Numeric"</c>).
+    /// Limits are integers and <see cref="FuzzyThreshold"/> a number. <see cref="Scoring"/> is a nested object whose
+    /// properties are named like those of <see cref="JJScoringSettings"/>, with the mode as a member name and the
+    /// weights as integers. The result is validated like settings passed to <see cref="JJMatcher.Match"/>.
     /// </summary>
     /// <param name="json">The JSON text of the settings object.</param>
     /// <exception cref="ArgumentNullException">The text is null.</exception>
@@ -67,9 +86,27 @@ public sealed class JJMatchSettings
             else if (Is(property, nameof(MaxAssignmentSize))) settings.MaxAssignmentSize = Int32(property);
             else if (Is(property, nameof(MaxWork))) settings.MaxWork = Int64(property);
             else if (Is(property, nameof(FuzzyThreshold))) settings.FuzzyThreshold = Double(property);
+            else if (Is(property, nameof(Scoring))) settings.Scoring = ScoringObject(property);
             else throw new ArgumentException($"Unknown setting '{property.Name}'.", nameof(json));
         }
         return settings.Snapshot();
+
+        static JJScoringSettings ScoringObject(JsonProperty property)
+        {
+            if (property.Value.ValueKind != JsonValueKind.Object)
+                throw new ArgumentException($"'{property.Name}' must be an object.", nameof(json));
+            var scoring = new JJScoringSettings();
+            foreach (var setting in property.Value.EnumerateObject())
+            {
+                if (Is(setting, nameof(JJScoringSettings.Mode))) scoring.Mode = Member<JJScoringMode>(setting);
+                else if (Is(setting, nameof(JJScoringSettings.MissingWeight))) scoring.MissingWeight = Int32(setting);
+                else if (Is(setting, nameof(JJScoringSettings.AddedWeight))) scoring.AddedWeight = Int32(setting);
+                else if (Is(setting, nameof(JJScoringSettings.TypeMismatchWeight))) scoring.TypeMismatchWeight = Int32(setting);
+                else if (Is(setting, nameof(JJScoringSettings.ValueMismatchWeight))) scoring.ValueMismatchWeight = Int32(setting);
+                else throw new ArgumentException($"Unknown setting '{property.Name}.{setting.Name}'.", nameof(json));
+            }
+            return scoring;
+        }
 
         static double Double(JsonProperty property) =>
             property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetDouble(out var value)
@@ -101,10 +138,12 @@ public sealed class JJMatchSettings
     internal JJMatchSettings Snapshot()
     {
         var copy = (JJMatchSettings)MemberwiseClone();
+        // The scoring configuration is a reference: it is copied and validated on its own, so a later change to the
+        // caller's object cannot reach a running comparison.
+        copy._scoring = _scoring.Snapshot();
         if (copy.ArrayMode < JJArrayMatchingMode.StructureOnly || copy.ArrayMode > JJArrayMatchingMode.Strict)
             throw new ArgumentOutOfRangeException(nameof(ArrayMode));
-        const JJValueMatchingMode known = JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized
-            | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric;
+        const JJValueMatchingMode known = JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric;
         if ((copy.ValueMode & ~known) != 0) throw new ArgumentOutOfRangeException(nameof(ValueMode));
         if (copy.PropertyNameMode < JJPropertyNameMatchingMode.Exact || copy.PropertyNameMode > JJPropertyNameMatchingMode.Normalized)
             throw new ArgumentOutOfRangeException(nameof(PropertyNameMode));

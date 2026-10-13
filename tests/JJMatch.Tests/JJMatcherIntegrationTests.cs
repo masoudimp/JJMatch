@@ -5,15 +5,15 @@ public class JJMatcherIntegrationTests
     // Guide.md uses this exact pair in every row. Counts below are hand-tallied from that document,
     // independent of the production tree, shape signatures and assignment engine.
     [Theory]
-    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Exact, JJMatchOptions.All, 10, 20, 9)]
-    [InlineData(JJArrayMatchingMode.Unordered, JJValueMatchingMode.Exact, JJMatchOptions.All, 14, 20, 5)]
-    [InlineData(JJArrayMatchingMode.StructureOnly, JJValueMatchingMode.Exact, JJMatchOptions.All, 11, 17, 5)]
-    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Numeric, JJMatchOptions.All, 7, 20, 12)]
+    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.None, JJMatchOptions.All, 10, 20, 9)]
+    [InlineData(JJArrayMatchingMode.Unordered, JJValueMatchingMode.None, JJMatchOptions.All, 14, 20, 5)]
+    [InlineData(JJArrayMatchingMode.StructureOnly, JJValueMatchingMode.None, JJMatchOptions.All, 11, 17, 5)]
+    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Numeric, JJMatchOptions.All, 11, 20, 8)]
     [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Normalized, JJMatchOptions.All, 11, 20, 8)]
     [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 12, 20, 7)]
-    [InlineData(JJArrayMatchingMode.Unordered, JJValueMatchingMode.Exact | JJValueMatchingMode.Numeric | JJValueMatchingMode.Normalized, JJMatchOptions.All, 16, 20, 3)]
-    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Exact, JJMatchOptions.StructuralMatching, 19, 20, 0)]
-    [InlineData(JJArrayMatchingMode.Unordered, JJValueMatchingMode.Exact | JJValueMatchingMode.Numeric | JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 17, 20, 2)]
+    [InlineData(JJArrayMatchingMode.Unordered, JJValueMatchingMode.Numeric | JJValueMatchingMode.Normalized, JJMatchOptions.All, 16, 20, 3)]
+    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.None, JJMatchOptions.StructuralMatching, 19, 20, 0)]
+    [InlineData(JJArrayMatchingMode.Unordered, JJValueMatchingMode.Numeric | JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 17, 20, 2)]
     public void Guide_configuration_table_matches_independently_counted_nodes(
         JJArrayMatchingMode arrayMode, JJValueMatchingMode valueMode, JJMatchOptions options,
         int matchedNodes, int effectiveNodesPerSide, int valueDifferences)
@@ -33,13 +33,13 @@ public class JJMatcherIntegrationTests
     }
 
     [Theory]
-    [InlineData("items", JJArrayMatchingMode.Unordered, JJValueMatchingMode.Exact, JJMatchOptions.All, 300d / 7, 4)]
-    [InlineData("items", JJArrayMatchingMode.StructureOnly, JJValueMatchingMode.Exact, JJMatchOptions.All, 300d / 7, 4)]
-    [InlineData("total", JJArrayMatchingMode.Strict, JJValueMatchingMode.Exact | JJValueMatchingMode.Numeric, JJMatchOptions.All, 0, 1)]
-    [InlineData("customer.name", JJArrayMatchingMode.Strict, JJValueMatchingMode.Exact | JJValueMatchingMode.Normalized, JJMatchOptions.All, 0, 1)]
-    [InlineData("customer.contact", JJArrayMatchingMode.Strict, JJValueMatchingMode.Exact | JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 0, 1)]
-    [InlineData("customer", JJArrayMatchingMode.Strict, JJValueMatchingMode.Exact | JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 50, 2)]
-    [InlineData("paid", JJArrayMatchingMode.Strict, JJValueMatchingMode.Exact, JJMatchOptions.StructuralMatching, 0, 1)]
+    [InlineData("items", JJArrayMatchingMode.Unordered, JJValueMatchingMode.None, JJMatchOptions.All, 300d / 7, 4)]
+    [InlineData("items", JJArrayMatchingMode.StructureOnly, JJValueMatchingMode.None, JJMatchOptions.All, 300d / 7, 4)]
+    [InlineData("total", JJArrayMatchingMode.Strict, JJValueMatchingMode.Numeric, JJMatchOptions.All, 0, 1)]
+    [InlineData("customer.name", JJArrayMatchingMode.Strict, JJValueMatchingMode.Normalized, JJMatchOptions.All, 0, 1)]
+    [InlineData("customer.contact", JJArrayMatchingMode.Strict, JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 0, 1)]
+    [InlineData("customer", JJArrayMatchingMode.Strict, JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 50, 2)]
+    [InlineData("paid", JJArrayMatchingMode.Strict, JJValueMatchingMode.None, JJMatchOptions.StructuralMatching, 0, 1)]
     public void Guide_focused_examples_switch_from_mismatch_to_complete_match(
         string propertyPath, JJArrayMatchingMode arrayMode, JJValueMatchingMode valueMode, JJMatchOptions options,
         double defaultScore, int defaultDifferences)
@@ -185,6 +185,7 @@ public class JJMatcherIntegrationTests
         Assert.Equal(result.Score, result.ValueMatchPercentage);
         var difference = Assert.Single(result.Differences);
         Assert.Equal(JJDifferenceKind.ValueMismatch, difference.Kind);
+        Assert.Equal(10, difference.ScoreWeight); // Under Standard every difference counts fully.
         Assert.Equal("$.age", difference.Path);
         Assert.Equal("$.age", difference.LeftPath);
         Assert.Equal("$.age", difference.RightPath);
@@ -313,6 +314,9 @@ public class JJMatcherIntegrationTests
         var result = JJMatcher.Match(left, right, settings: new JJMatchSettings { ValueMode = mode });
         Consistent(result);
         Assert.True(result.IsMatch);
+        // Identical values match under every rule: a document of strings, numbers, a Boolean and a null matches itself.
+        var mixed = Input("Left", "guideScenario");
+        Assert.True(JJMatcher.Match(mixed, mixed, settings: new JJMatchSettings { ValueMode = mode }).IsMatch);
     }
 
     [Fact]
@@ -500,7 +504,6 @@ public class JJMatcherIntegrationTests
         Assert.ThrowsAny<System.Text.Json.JsonException>(() => JJMatcher.Match(valid, malformed));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, (JJMatchOptions)128));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { ValueMode = (JJValueMatchingMode)16 }));
-        Assert.Throws<ArgumentException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { ValueMode = JJValueMatchingMode.None }));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { PropertyNameMode = (JJPropertyNameMatchingMode)2 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = -0.1 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = 1.1 }));
@@ -520,6 +523,156 @@ public class JJMatcherIntegrationTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => JJMatcher.Match(valid, valid, cancellationToken: cancellation.Token));
+    }
+
+    [Fact]
+    public void Scoring_configuration_is_always_present_and_defaults_to_standard_scoring()
+    {
+        var settings = new JJMatchSettings();
+        Assert.NotNull(settings.Scoring);
+        Assert.NotSame(settings.Scoring, new JJMatchSettings().Scoring);
+        Assert.Equal(JJScoringMode.Standard, settings.Scoring.Mode);
+        Assert.Equal(JJScoringMode.Standard, default(JJScoringMode));
+        Assert.Equal(1, JJScoringSettings.MinWeight);
+        Assert.Equal(10, JJScoringSettings.MaxWeight);
+        Assert.Equal((10, 8, 6, 3), (settings.Scoring.TypeMismatchWeight, settings.Scoring.MissingWeight,
+            settings.Scoring.ValueMismatchWeight, settings.Scoring.AddedWeight));
+        Assert.Throws<ArgumentNullException>(() => settings.Scoring = null!);
+        Assert.NotNull(settings.Scoring);
+
+        // Under Standard the weights play no part, so a settings object with any weights scores like the default.
+        var left = Input("Left", "nested");
+        var right = Input("Right", "nested");
+        var standard = JJMatcher.Match(left, right);
+        var unused = new JJMatchSettings { Scoring = { MissingWeight = 1, AddedWeight = 10, TypeMismatchWeight = 1, ValueMismatchWeight = 1 } };
+        Assert.Equal(standard.Score, JJMatcher.Match(left, right, settings: unused).Score);
+        // The comparison copies the configuration: validation does not touch the caller's object.
+        Assert.Equal(JJScoringMode.Standard, unused.Scoring.Mode);
+        Assert.Equal(10, unused.Scoring.AddedWeight);
+    }
+
+    [Fact]
+    public void Weighted_scoring_discounts_each_kind_by_its_weight_and_each_subtree_by_its_size()
+    {
+        // nested: 8 nodes on each side; the root, profile and tags match. Unmatched: city (2 nodes), tags[0] (2),
+        // tags[1] (2) as value mismatches, old (1) and nullable (1) missing, new (array + 1 element) added: 10 nodes,
+        // which is 16 - 2 × 3. Standard: 600 / 16. Default weights: 3 × 2 × 6 + 2 × 8 + 2 × 3 = 58 against 2 × 10 × 3.
+        var left = Input("Left", "nested");
+        var right = Input("Right", "nested");
+        var weighted = new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted } };
+        var result = JJMatcher.Match(left, right, settings: weighted);
+        Consistent(result);
+        Assert.Equal(37.5, JJMatcher.Match(left, right).Score);
+        Assert.Equal(6000d / 118, result.Score);
+        Assert.Equal(result.Score, result.ValueMatchPercentage);
+        // Each difference reports the weight applied to it: the configured weight of its kind.
+        Assert.Equal(new[] { ("$.profile.city", 6), ("$.tags[0]", 6), ("$.tags[1]", 6), ("$.old", 8), ("$.nullable", 8), ("$.new", 3) },
+            result.Differences.Select(d => (d.Path, d.ScoreWeight)));
+        // The added array weighs its two nodes: 7 more per node when its weight goes from 3 to 10, 2 less at 1.
+        weighted.Scoring.AddedWeight = 10;
+        var heavierAdded = JJMatcher.Match(left, right, settings: weighted);
+        Assert.Equal(6000d / 132, heavierAdded.Score);
+        Assert.Equal(10, heavierAdded.Differences.Single(d => d.Kind == JJDifferenceKind.Added).ScoreWeight);
+        weighted.Scoring.AddedWeight = 1;
+        Assert.Equal(6000d / 114, JJMatcher.Match(left, right, settings: weighted).Score);
+        // The structural pass has no value mismatches: old, nullable and new remain, 8 + 8 + 2 against 2 × 10 × 6.
+        Assert.Equal(12000d / 138, JJMatcher.Match(left, right, settings: weighted).StructuralMatchPercentage);
+        Assert.Equal(12000d / 138, JJMatcher.Match(left, right, JJMatchOptions.StructuralMatching, weighted).Score);
+
+        // The guide pair under Strict + Exact: 10 matched, 9 value mismatches of 2 nodes, legacyCode missing (1),
+        // coupon added (1): 108 + 8 + 3 = 119 against 200. The structural diagnostic: 19 matched, 8 + 3 against 380.
+        var guide = JJMatcher.Match(Input("Left", "guideScenario"), Input("Right", "guideScenario"),
+            settings: new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted } });
+        Consistent(guide);
+        Assert.Equal(20000d / 319, guide.Score);
+        Assert.Equal(38000d / 391, guide.StructuralMatchPercentage);
+        // Unordered pairs the items: 14 matched and 5 value mismatches, 60 + 11 against 280.
+        Assert.Equal(28000d / 351, JJMatcher.Match(Input("Left", "guideScenario"), Input("Right", "guideScenario"),
+            settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.Unordered, Scoring = { Mode = JJScoringMode.Weighted } }).Score);
+
+        // A weight of 10 counts a lost node exactly as Standard does: basic has one value mismatch and nothing else.
+        var basic = new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted, ValueMismatchWeight = 10 } };
+        Assert.Equal(200d / 3, JJMatcher.Match(Input("Left", "basic"), Input("Right", "basic"), settings: basic).Score);
+        basic.Scoring.ValueMismatchWeight = 1;
+        Assert.Equal(4000d / 42, JJMatcher.Match(Input("Left", "basic"), Input("Right", "basic"), settings: basic).Score);
+        // Nothing matched is 0 whatever the weights: the roots are of different types.
+        Assert.Equal(0, JJMatcher.Match(Input("Left", "emptyArray"), Input("Right", "emptyObject"),
+            settings: new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted, TypeMismatchWeight = 1 } }).Score);
+        // The one added element of surplus is an Added on the way there and a Missing on the way back: 3 against 8.
+        var surplus = new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted } };
+        Assert.Equal(6000d / 63, JJMatcher.Match(Input("Left", "surplus"), Input("Right", "surplus"), settings: surplus).Score);
+        Assert.Equal(6000d / 68, JJMatcher.Match(Input("Right", "surplus"), Input("Left", "surplus"), settings: surplus).Score);
+    }
+
+    [Fact]
+    public void Weighted_scoring_keeps_differences_and_match_decisions_and_agrees_with_standard_at_the_maximum_weight()
+    {
+        foreach (var mode in Enum.GetValues<JJArrayMatchingMode>())
+        {
+            foreach (var name in new[] { "guideScenario", "basic", "nested", "arrayValues", "arrayObjects", "surplus", "duplicates", "shapeValues", "propertyNames", "emptyArray" })
+            {
+                var left = Input("Left", name);
+                var right = Input("Right", name == "emptyArray" ? "emptyObject" : name);
+                foreach (var options in new[] { JJMatchOptions.All, JJMatchOptions.StructuralMatching, JJMatchOptions.ValueMatching })
+                {
+                    var standard = JJMatcher.Match(left, right, options, new JJMatchSettings { ArrayMode = mode });
+                    var maximum = JJMatcher.Match(left, right, options, new JJMatchSettings
+                    {
+                        ArrayMode = mode,
+                        Scoring = { Mode = JJScoringMode.Weighted, MissingWeight = 10, AddedWeight = 10, TypeMismatchWeight = 10, ValueMismatchWeight = 10 }
+                    });
+                    var defaults = new JJMatchSettings { ArrayMode = mode, Scoring = { Mode = JJScoringMode.Weighted } };
+                    var weighted = JJMatcher.Match(left, right, options, defaults);
+                    Consistent(maximum);
+                    Consistent(weighted);
+                    // Every weight at the maximum is the Standard score, bit for bit, in both result percentages.
+                    Assert.Equal(standard.Score, maximum.Score);
+                    Assert.Equal(standard.StructuralMatchPercentage, maximum.StructuralMatchPercentage);
+                    Assert.Equal(standard.ValueMatchPercentage, maximum.ValueMatchPercentage);
+                    // Weights discount, never amplify; the match decision and the differences never move.
+                    Assert.True(weighted.Score >= standard.Score);
+                    Assert.Equal(standard.IsMatch, weighted.IsMatch);
+                    Assert.Equal(standard.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath)),
+                        weighted.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath)));
+                    // ScoreWeight is the weight applied: 10 for every difference under Standard, the kind's weight under Weighted.
+                    Assert.All(standard.Differences, d => Assert.Equal(10, d.ScoreWeight));
+                    Assert.All(weighted.Differences, d => Assert.Equal(d.Kind switch
+                    {
+                        JJDifferenceKind.Missing => 8,
+                        JJDifferenceKind.Added => 3,
+                        JJDifferenceKind.TypeMismatch => 10,
+                        _ => 6
+                    }, d.ScoreWeight));
+                    Assert.Equal(weighted.Score, JJMatcher.Match(left, right, options, defaults).Score);
+                    // Swapping the documents turns every Missing into an Added, so the score is symmetric when the two
+                    // weights travel with the documents, and whenever they are equal.
+                    var mirrored = new JJMatchSettings { ArrayMode = mode, Scoring = { Mode = JJScoringMode.Weighted, MissingWeight = 3, AddedWeight = 8 } };
+                    Assert.Equal(weighted.Score, JJMatcher.Match(right, left, options, mirrored).Score);
+                    var even = new JJMatchSettings { ArrayMode = mode, Scoring = { Mode = JJScoringMode.Weighted, MissingWeight = 5, AddedWeight = 5 } };
+                    Assert.Equal(JJMatcher.Match(left, right, options, even).Score, JJMatcher.Match(right, left, options, even).Score);
+                    // A kind that is not reported has no effect on the score.
+                    if (weighted.Differences.All(d => d.Kind != JJDifferenceKind.TypeMismatch))
+                    {
+                        defaults.Scoring.TypeMismatchWeight = 1;
+                        Assert.Equal(weighted.Score, JJMatcher.Match(left, right, options, defaults).Score);
+                    }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void Scoring_weights_outside_the_scale_and_unknown_modes_are_rejected()
+    {
+        var valid = Input("Left", "basic");
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { Scoring = { Mode = (JJScoringMode)2 } }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { Scoring = { MissingWeight = 0 } }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { Scoring = { AddedWeight = 11 } }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { Scoring = { TypeMismatchWeight = -1 } }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { Scoring = { ValueMismatchWeight = int.MaxValue } }));
+        // The weights are validated under Standard too, so a configuration is either valid or rejected whatever the mode.
+        Assert.True(JJMatcher.Match(valid, valid, settings: new JJMatchSettings { Scoring = { MissingWeight = 1, AddedWeight = 10 } }).IsMatch);
+        Assert.Equal(100, JJMatcher.Match(valid, valid, settings: new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted } }).Score);
     }
 
     [Fact]

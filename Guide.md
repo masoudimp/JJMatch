@@ -89,7 +89,7 @@ The differences between the two documents, and the setting that could accept eac
 
 ## 3. Settings
 
-Settings are passed as `JJMatchSettings`. `ArrayMode` controls how arrays are paired, `ValueMode` is a set of flags that decides which primitive values are accepted, and `PropertyNameMode` decides how property names are paired. `JJMatchOptions.StructuralMatching` ignores primitive values altogether.
+Settings are passed as `JJMatchSettings`. `ArrayMode` controls how arrays are paired, `ValueMode` is a set of flags that decides which primitive values are accepted, `PropertyNameMode` decides how property names are paired, and `Scoring` decides how the score is computed from the result. `JJMatchOptions.StructuralMatching` ignores primitive values altogether.
 
 ```csharp
 Show("A", JJMatcher.Match(leftJson, rightJson));
@@ -101,7 +101,7 @@ Show("G", JJMatcher.Match(leftJson, rightJson,
     settings: new JJMatchSettings
     {
         ArrayMode = JJArrayMatchingMode.Unordered,
-        ValueMode = JJValueMatchingMode.Exact | JJValueMatchingMode.Numeric
+        ValueMode = JJValueMatchingMode.Numeric
             | JJValueMatchingMode.Normalized
     }));
 
@@ -112,13 +112,13 @@ Results on the example pair. Scores use invariant `"R"` formatting, the full rou
 
 | ID | Configuration | IsMatch | Score (%) | Differences |
 | --- | --- | --- | ---: | --- |
-| A | Default: Strict + Exact | `false` | `50` | **11**: 9 ValueMismatch, 1 Missing, 1 Added |
-| B | Unordered + Exact | `false` | `70` | **7**: 5 ValueMismatch, 1 Missing, 1 Added |
-| C | StructureOnly + Exact | `false` | `64.70588235294117` | **7**: 5 ValueMismatch, 1 Missing, 1 Added |
-| D | Strict + Numeric | `false` | `35` | **14**: 12 ValueMismatch, 1 Missing, 1 Added |
+| A | Default: Strict, identical values | `false` | `50` | **11**: 9 ValueMismatch, 1 Missing, 1 Added |
+| B | Unordered | `false` | `70` | **7**: 5 ValueMismatch, 1 Missing, 1 Added |
+| C | StructureOnly | `false` | `64.70588235294117` | **7**: 5 ValueMismatch, 1 Missing, 1 Added |
+| D | Strict + Numeric | `false` | `55` | **10**: 8 ValueMismatch, 1 Missing, 1 Added |
 | E | Strict + Normalized | `false` | `55` | **10**: 8 ValueMismatch, 1 Missing, 1 Added |
 | F | Strict + Fuzzy | `false` | `60` | **9**: 7 ValueMismatch, 1 Missing, 1 Added |
-| G | Unordered + Exact \| Numeric \| Normalized | `false` | `80` | **5**: 3 ValueMismatch, 1 Missing, 1 Added |
+| G | Unordered + Numeric \| Normalized | `false` | `80` | **5**: 3 ValueMismatch, 1 Missing, 1 Added |
 | H | StructuralMatching, Strict arrays | `false` | `95` | **2**: 1 Missing, 1 Added |
 | I | G plus Fuzzy | `false` | `85` | **4**: 2 ValueMismatch, 1 Missing, 1 Added |
 
@@ -127,9 +127,9 @@ Every row keeps the missing `legacyCode` and the added `coupon`, so no setting p
 - **A, Strict arrays.** BOOK is paired with PEN at position 0 and PEN with BOOK at position 1, which creates four item differences on top of the value changes.
 - **B, Unordered arrays.** Each item finds its exact partner. Counts still matter: every occurrence can match only once, and JJMatch compares whole items rather than treating `sku` or `id` as a key.
 - **C, StructureOnly arrays.** Both item objects have the same shape, so each array contributes one shape and the values below arrays are ignored. The score differs from B because fewer nodes are counted (section 4).
-- **D, Numeric only.** `30` and `30.0` now match, but Numeric **replaces** Exact and accepts numbers only, so every identical string becomes a ValueMismatch. Keep `Exact` in the set when the documents hold more than one primitive type.
+- **D, Numeric.** `30` and `30.0` now match. Numeric relaxes numbers only. Identical values **always** match, whatever is selected: a rule only accepts further pairs, so the identical strings here still match.
 - **E, Normalized.** Strings match after trimming outer white space, Unicode NFC normalization and ignoring case. Internal spaces, punctuation and accents are kept. Strings only.
-- **F, Fuzzy.** Small typos are accepted: two strings match when their similarity, one minus the edits per character of the longer folded text, is at least `FuzzyThreshold`, where an edit is an insertion, deletion, replacement or adjacent swap. The default threshold is 0.8, one edit for every five characters: `"Jon"` vs `"John"` allows 0 edits and fails; `"Jon Smith"` vs `"John Smith"` allows 2 and matches. Set `FuzzyThreshold = 0.75` and `"Jon"` matches `"John"` too; set it to 1 and only Normalized-equal strings match. Fuzzy can accept changed digits inside strings, so prefer Exact for identifiers. Strings only.
+- **F, Fuzzy.** Small typos are accepted: two strings match when their similarity, one minus the edits per character of the longer folded text, is at least `FuzzyThreshold`, where an edit is an insertion, deletion, replacement or adjacent swap. The default threshold is 0.8, one edit for every five characters: `"Jon"` vs `"John"` allows 0 edits and fails; `"Jon Smith"` vs `"John Smith"` allows 2 and matches. Set `FuzzyThreshold = 0.75` and `"Jon"` matches `"John"` too; set it to 1 and only Normalized-equal strings match. Fuzzy can accept changed digits inside strings, so leave it off for identifiers. Strings only.
 - **G and I, combined rules.** A value matches when **any** selected rule accepts it. This is a practical starting point for mixed JSON where order, numeric spelling, case and outer white space should not matter.
 - **H, StructuralMatching.** Names, types and container structure are compared, primitive values are ignored. Unlike the StructureOnly array mode in C, this applies to the whole document.
 
@@ -143,17 +143,58 @@ Show("Names, normalized", JJMatcher.Match("""{"name":"Ali"}""", """{"Name":"Ali"
 // true / 100 / 0
 ```
 
+### Scoring weights
+
+By default every node counts the same, so a missing field, an extra field and a wrong value each cost one node of the score. `JJMatchSettings.Scoring` is always present, never null, and selects `JJScoringMode.Standard`, which is exactly that score. Switch it to `JJScoringMode.Weighted` to make some kinds of difference matter less than others: each `JJDifferenceKind` gets an importance weight from 1 (least important) to 10 (most critical), and an unmatched node then counts its kind's weight against a matched node's 10. The defaults are `TypeMismatchWeight = 10`, `MissingWeight = 8`, `ValueMismatchWeight = 6` and `AddedWeight = 3`: a wrong type breaks the shape a consumer relies on, missing content was expected, a wrong value keeps the shape, and extra content leaves everything expected in place.
+
+```csharp
+Show("W", JJMatcher.Match(leftJson, rightJson,
+    settings: new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted } }));
+
+Show("X", JJMatcher.Match(leftJson, rightJson,
+    settings: new JJMatchSettings
+    {
+        Scoring =
+        {
+            Mode = JJScoringMode.Weighted,
+            MissingWeight = 10,
+            AddedWeight = 10,
+            ValueMismatchWeight = 1
+        }
+    }));
+```
+
+The same differences, weighed differently, on the example pair. The unmatched mass is the sum over the differences of their nodes times their kind's weight; the matched mass is 20 per matched node.
+
+| ID | Configuration | IsMatch | Score (%) | Differences | Unmatched mass against matched mass |
+| --- | --- | --- | ---: | --- | --- |
+| A | Strict, Standard | `false` | `50` | 9 ValueMismatch, 1 Missing, 1 Added | 20 nodes of 40, unweighted |
+| W | A, Weighted with the default weights | `false` | `62.69592476489028` | the same 11 | `9 × 2 × 6 + 1 × 8 + 1 × 3 = 119` against `10 × 20 = 200` |
+| X | A, Weighted: Missing 10, Added 10, ValueMismatch 1 | `false` | `84.03361344537815` | the same 11 | `18 + 10 + 10 = 38` against `200` |
+| Y | A, Weighted: Missing 1, Added 1, ValueMismatch 10 | `false` | `52.35602094240838` | the same 11 | `180 + 1 + 1 = 182` against `200` |
+| B+W | Unordered, Weighted defaults | `false` | `79.77207977207978` | 5 ValueMismatch, 1 Missing, 1 Added | `60 + 8 + 3 = 71` against `280` |
+| H+W | StructuralMatching, Weighted defaults | `false` | `97.18670076726343` | 1 Missing, 1 Added | `8 + 3 = 11` against `380` |
+
+What to expect from the weights:
+
+- **`IsMatch` and the differences never change.** Weights change the number, not the verdict: a complete match is 100 under every mode, and any difference keeps the score below 100.
+- **A weight of 10 is the Standard cost.** With every weight at 10 the Weighted score equals the Standard one exactly. Lower weights discount a kind, so a Weighted score is never below the Standard score, and lowering a weight never lowers the score.
+- **A subtree weighs its size.** A missing object of five nodes with `MissingWeight = 8` costs 40; a wrong value costs its two primitives times `ValueMismatchWeight`; a type mismatch costs the nodes of both sides. Nothing is counted twice: every unmatched node belongs to exactly one difference.
+- **Direction matters when Missing and Added differ.** Swapping the two documents turns every Missing into an Added, so with the default weights `[1,2]` against `[1,2,3]` scores `95.238…` and `[1,2,3]` against `[1,2]` scores `88.235…`. Give both kinds the same weight when the direction should not matter.
+- **Validation.** A weight outside 1 to 10 or an unknown mode throws `ArgumentOutOfRangeException`, and setting `Scoring` to null throws `ArgumentNullException`.
+
 ### Settings from a JJSetting.json file
 
-Settings can also be kept in a JSON file and loaded with `JJMatchSettings.FromJson`. Each property is named like the `JJMatchSettings` property, ignoring case; an omitted property keeps its default. Modes are member names, value rules are joined by `|`, `FuzzyThreshold` is a number from 0 to 1, and limits are integers. The playground shows this file for the settings you select.
+Settings can also be kept in a JSON file and loaded with `JJMatchSettings.FromJson`. Each property is named like the `JJMatchSettings` property, ignoring case; an omitted property keeps its default. Modes are member names, value rules are joined by `|`, `FuzzyThreshold` is a number from 0 to 1, limits are integers, and `Scoring` is an object whose properties are named like those of `JJScoringSettings`. The playground shows this file for the settings you select.
 
 ```json
 {
   "ArrayMode": "Unordered",
-  "ValueMode": "Exact | Numeric",
+  "ValueMode": "Numeric",
   "PropertyNameMode": "Exact",
   "FuzzyThreshold": 0.8,
-  "MaxDepth": 128
+  "MaxDepth": 128,
+  "Scoring": { "Mode": "Weighted", "MissingWeight": 8, "AddedWeight": 3, "TypeMismatchWeight": 10, "ValueMismatchWeight": 6 }
 }
 ```
 
@@ -181,7 +222,7 @@ The example documents have 20 nodes each: the root, `orderId`, `currency`, `cust
 | A | 10 | 40 | `200 × 10 / 40 = 50` | 6 containers + orderId, currency, city, note |
 | B | 14 | 40 | `200 × 14 / 40 = 70` | A + the 4 correctly paired item values |
 | C | 11 | 34 | `200 × 11 / 34 = 1100/17` | 5 effective containers + 4 exact values outside arrays + 2 ignored item values |
-| D | 7 | 40 | `200 × 7 / 40 = 35` | 6 containers + total |
+| D | 11 | 40 | `200 × 11 / 40 = 55` | A + total |
 | E | 11 | 40 | `200 × 11 / 40 = 55` | A + customer.name |
 | F | 12 | 40 | `200 × 12 / 40 = 60` | A + customer.name and customer.contact |
 | G | 16 | 40 | `200 × 16 / 40 = 80` | B + customer.name and total |
@@ -189,6 +230,14 @@ The example documents have 20 nodes each: the root, `orderId`, `currency`, `cust
 | I | 17 | 40 | `200 × 17 / 40 = 85` | G + customer.contact |
 
 B and C report the same differences but different scores: counting differences cannot reproduce a score, because a missing subtree is one diagnostic but may contain many nodes, and shape mode changes what is counted.
+
+Under `JJScoringMode.Weighted` (section 3) the same matched and unmatched nodes are weighed instead of counted: each matched node weighs 10 on each side, and each unmatched node weighs the 1-to-10 weight of the kind of difference it belongs to.
+
+```text
+Weighted score = 100 × 20 × matched nodes / (20 × matched nodes + Σ weight × unmatched nodes of each difference)
+```
+
+Row W above is `100 × 200 / (200 + 119)`. With every weight at 10 this is the Standard formula again.
 
 Use `IsMatch` to decide success, not a rounded score. Format `Score` with `F2` and append `%`; .NET's `P` format would multiply it by 100 again. Swapping Left and Right preserves `Score` and `IsMatch`. The score measures accepted content and structure, not probability or factual accuracy. See the [scoring reference](https://github.com/masoudimp/JJMatch/blob/main/Docs/Scoring.md) for alignment constraints and limitations.
 
@@ -199,25 +248,27 @@ var combined = JJMatcher.Match(leftJson, rightJson,
     settings: new JJMatchSettings
     {
         ArrayMode = JJArrayMatchingMode.Unordered,
-        ValueMode = JJValueMatchingMode.Exact | JJValueMatchingMode.Numeric
+        ValueMode = JJValueMatchingMode.Numeric
             | JJValueMatchingMode.Normalized
     });
 
 foreach (var difference in combined.Differences)
 {
-    Console.WriteLine($"{difference.Kind}: {difference.Path}");
+    Console.WriteLine($"{difference.Kind} (weight {difference.ScoreWeight}): {difference.Path}");
     Console.WriteLine($"  Left:  {difference.LeftValue?.GetRawText() ?? "<missing>"}");
     Console.WriteLine($"  Right: {difference.RightValue?.GetRawText() ?? "<missing>"}");
 }
 ```
 
-| Kind | Path | Left value | Right value |
-| --- | --- | --- | --- |
-| ValueMismatch | `$.customer.contact` | `"Jon Smith"` | `"John Smith"` |
-| ValueMismatch | `$.paid` | `true` | `false` |
-| ValueMismatch | `$.delivery.days` | `3` | `5` |
-| Missing | `$.legacyCode` | `null` | absent |
-| Added | `$.coupon` | absent | `"WELCOME"` |
+| Kind | ScoreWeight | Path | Left value | Right value |
+| --- | ---: | --- | --- | --- |
+| ValueMismatch | 10 | `$.customer.contact` | `"Jon Smith"` | `"John Smith"` |
+| ValueMismatch | 10 | `$.paid` | `true` | `false` |
+| ValueMismatch | 10 | `$.delivery.days` | `3` | `5` |
+| Missing | 10 | `$.legacyCode` | `null` | absent |
+| Added | 10 | `$.coupon` | absent | `"WELCOME"` |
+
+`ScoreWeight` is the importance weight the score applied to the difference, from 1 to 10. Under the default `Standard` scoring every difference counts fully, so it is always 10. Under `Weighted` it is the configured weight of the difference's `Kind`, so the same list with the default weights would show 6, 6, 6, 8 and 3.
 
 | Kind | Meaning |
 | --- | --- |
@@ -245,9 +296,9 @@ catch (InvalidOperationException exception)
 }
 ```
 
-**Cancellation and validation.** `Match` accepts `cancellationToken:` and throws `OperationCanceledException` when cancelled. Unknown option bits and invalid settings throw argument exceptions; `ValueMode.None` is rejected when value comparison is enabled. Configure settings before calling and do not mutate shared settings during a call.
+**Cancellation and validation.** `Match` accepts `cancellationToken:` and throws `OperationCanceledException` when cancelled. Unknown option bits and invalid settings throw argument exceptions. `ValueMode.None`, the default, is valid: only identical values match. Configure settings before calling and do not mutate shared settings during a call.
 
-**Result properties.** `StructuralMatchPercentage` is an independent structure-only diagnostic; `ValueMatchPercentage` is the value-aware document score, not a component to average with the structural one. `ElapsedMilliseconds` is the wall-clock time the call took, including parsing and difference reporting.
+**Result properties.** `StructuralMatchPercentage` is an independent structure-only diagnostic, computed under the selected scoring mode; `ValueMatchPercentage` is the value-aware document score, not a component to average with the structural one. `ElapsedMilliseconds` is the wall-clock time the call took, including parsing and difference reporting.
 
 ## 7. Next Steps
 

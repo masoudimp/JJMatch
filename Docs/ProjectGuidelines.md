@@ -35,7 +35,7 @@ Do not implement a future stage prematurely.
 
 ### 6. Keep scoring defined and explainable
 
-The public API completion request explicitly authorized similarity scoring. Preserve the Sørensen–Dice contract in `Docs/Scoring.md`; do not add weights or change the denominator without a documented requirement.
+The public API completion request explicitly authorized similarity scoring. Preserve the Sørensen–Dice contract in `Docs/Scoring.md`: the unweighted `Standard` score stays the default, and the opt-in `Weighted` mode defined there is the one documented exception. Do not add further weights or change a denominator without a documented requirement.
 
 ### 7. Preserve compatibility
 
