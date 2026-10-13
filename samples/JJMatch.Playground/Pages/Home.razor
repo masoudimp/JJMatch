@@ -40,7 +40,7 @@
 
 <fieldset class="settings">
     <legend>Limits</legend>
-    <label>MaxDepth (1 to 128) <input type="number" min="1" max="128" @bind="maxDepth" /></label>
+    <label>MaxDepth (at least 1) <input type="number" min="1" @bind="maxDepth" /></label>
 </fieldset>
 
 <div class="snippets">
@@ -83,6 +83,8 @@ else if (result is not null)
         <dd>@Percent(result.StructuralMatchPercentage)</dd>
         <dt>ValueMatchPercentage</dt>
         <dd>@Percent(result.ValueMatchPercentage)</dd>
+        <dt>ElapsedMilliseconds</dt>
+        <dd>@result.ElapsedMilliseconds.ToString("0.###", CultureInfo.InvariantCulture) ms</dd>
     </dl>
 
     <h2>Differences (@result.Differences.Count)</h2>

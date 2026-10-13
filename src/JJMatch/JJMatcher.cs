@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 
@@ -20,6 +21,7 @@ public static class JJMatcher
     public static JJMatchResult Match(string json1, string json2, JJMatchOptions? options = null,
         JJMatchSettings? settings = null, CancellationToken cancellationToken = default)
     {
+        var stopwatch = Stopwatch.StartNew();
         if (json1 is null) throw new ArgumentNullException(nameof(json1));
         if (json2 is null) throw new ArgumentNullException(nameof(json2));
         var flags = options ?? JJMatchOptions.All;
@@ -69,7 +71,8 @@ public static class JJMatcher
                     difference.Left is null ? null : l.Element, difference.Right is null ? null : r.Element));
             }
         }
-        return new JJMatchResult(score, differences.AsReadOnly(), structuralScore, compareValues ? score : null);
+        return new JJMatchResult(score, differences.AsReadOnly(), structuralScore, compareValues ? score : null,
+            stopwatch.Elapsed.TotalMilliseconds);
     }
 
     // Matched nodes are a one-to-one correspondence, so 2M <= total. Bounded integer node counts keep both

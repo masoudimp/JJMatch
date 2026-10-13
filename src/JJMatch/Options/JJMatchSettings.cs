@@ -20,7 +20,10 @@ public sealed class JJMatchSettings
     /// </summary>
     public double FuzzyThreshold { get; set; } = ValueMatcher.DefaultFuzzyThreshold;
 
-    /// <summary>Maximum container depth of each parsed document, from 1 to 128. Defaults to 64.</summary>
+    /// <summary>
+    /// Maximum container depth of each parsed document, at least 1, with no upper bound. Defaults to 64. The comparison
+    /// recurses once per level, so a very deep document can overflow the stack when the depth allows it.
+    /// </summary>
     public int MaxDepth { get; set; } = 64;
 
     /// <summary>Maximum UTF-16 length of each input, including any decoded document. Defaults to 1,000,000.</summary>
@@ -107,7 +110,7 @@ public sealed class JJMatchSettings
             throw new ArgumentOutOfRangeException(nameof(PropertyNameMode));
         // Written as a double negative so that NaN is rejected too.
         if (!(copy.FuzzyThreshold >= 0 && copy.FuzzyThreshold <= 1)) throw new ArgumentOutOfRangeException(nameof(FuzzyThreshold));
-        if (copy.MaxDepth < 1 || copy.MaxDepth > 128) throw new ArgumentOutOfRangeException(nameof(MaxDepth));
+        if (copy.MaxDepth < 1) throw new ArgumentOutOfRangeException(nameof(MaxDepth));
         if (copy.MaxInputLength < 1) throw new ArgumentOutOfRangeException(nameof(MaxInputLength));
         if (copy.MaxNodes < 1 || copy.MaxNodes > 1_000_000) throw new ArgumentOutOfRangeException(nameof(MaxNodes));
         if (copy.MaxAssignmentSize < 1 || copy.MaxAssignmentSize > 256) throw new ArgumentOutOfRangeException(nameof(MaxAssignmentSize));
