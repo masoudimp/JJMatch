@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/JJMatch.Benchmarks/JJMatch.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/JJMatch/JJMatch.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JJMatch.Tests/JJMatch.Tests.csproj" />
+  </Folder>
+</Solution>

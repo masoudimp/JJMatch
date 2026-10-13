@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.4" />
+  </ItemGroup>
+
+  <!-- The extraction and matching sources are compiled in directly: they are internal, and the library is not changed to expose them. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\JJMatch\Internal\JsonStructure\**\*.cs" LinkBase="JsonStructure" />
+    <Compile Include="..\..\src\JJMatch\Internal\Matching\**\*.cs" LinkBase="Matching" />
+    <Compile Include="..\..\src\JJMatch\Options\JJArrayMatchingMode.cs" LinkBase="Options" />
+    <Compile Include="..\..\src\JJMatch\Options\JJMatchSettings.cs" LinkBase="Options" />
+    <!-- ValueMatcher takes the public mode enum. -->
+    <Compile Include="..\..\src\JJMatch\Options\JJValueMatchingMode.cs" LinkBase="Options" />
+    <!-- The public facade, for the end-to-end benchmarks. -->
+    <Compile Include="..\..\src\JJMatch\JJMatcher.cs;..\..\src\JJMatch\JJMatchResult.cs" />
+    <Compile Include="..\..\src\JJMatch\Models\*.cs" LinkBase="Models" />
+    <Compile Include="..\..\src\JJMatch\Options\JJMatchOptions.cs" LinkBase="Options" />
+  </ItemGroup>
+
+  <!-- The same two fixtures the tests use. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\tests\JJMatch.Tests\TestData\ComplexJson\*.json" LogicalName="%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

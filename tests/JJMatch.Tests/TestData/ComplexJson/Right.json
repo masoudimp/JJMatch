@@ -1,0 +1,608 @@
+{
+  "core": {
+    "id": "ord-2024-000188",
+    "version": "3",
+    "active": false,
+    "customer": {
+      "id": 48213,
+      "name": "Zoë Åkesson",
+      "e-mail": "zoe@example.org",
+      "first name": "Zoë",
+      "名前": "ゾーイ",
+      "größe": "172.5 cm",
+      "preferences": { "newsletter": true },
+      "tags": ["vip"],
+      "addresses": [
+        {
+          "id": "addr-2",
+          "type": "shipping",
+          "street": "Hamngatan 4",
+          "city": "Malmö",
+          "geo": [55.605, 13.0038],
+          "primary": false
+        },
+        {
+          "id": "addr-1",
+          "type": "billing",
+          "street": "Storgatan 12",
+          "city": "Göteborg",
+          "geo": { "lat": 57.7089, "lng": 11.9746, "alt": 12 },
+          "primary": true
+        },
+        {
+          "id": "addr-3",
+          "type": "pickup",
+          "city": "Lund"
+        }
+      ]
+    },
+    "items": [
+      {
+        "id": 1,
+        "sku": "KB-ISO-105",
+        "name": "Mechanical keyboard",
+        "quantity": 1,
+        "price (USD)": 119.99,
+        "attributes": {
+          "name": "layout",
+          "value": "ISO",
+          "options": ["ISO", "ANSI"]
+        },
+        "bundle": {
+          "items": [
+            { "id": 11, "name": "Keycap puller", "quantity": 1 }
+          ]
+        }
+      },
+      {
+        "id": "2",
+        "sku": "MS-WL-02",
+        "name": "Wireless mouse",
+        "quantity": 2,
+        "price (USD)": 49.5,
+        "discount %": 10,
+        "attributes": [
+          { "name": "colour", "value": "graphite" },
+          { "name": "dpi", "value": 1600 }
+        ],
+        "bundle": null
+      }
+    ],
+    "matrix": [
+      [1, 2, 3],
+      [4, 5],
+      [],
+      [7, [8, 9]]
+    ],
+    "history": [
+      "created",
+      "42",
+      true,
+      { "event": "paid", "at": "2024-03-01T10:15:00Z", "meta": { "gateway": "stripe" } },
+      ["retry", 2, { "event": "webhook", "meta": { "status": 200, "body": {} } }],
+      null
+    ],
+    "payment": {
+      "method": "card",
+      "amount": 218.99,
+      "currency": "USD",
+      "captured": true,
+      "card": {
+        "brand": "visa",
+        "last4": "4242",
+        "expiry": "12/2027"
+      },
+      "refunds": [
+        { "id": "re-1", "amount": 10, "reason": null }
+      ]
+    },
+    "$schema": "https://example.com/schemas/order.json",
+    "@context": { "@vocab": "https://schema.org/", "id": "@id" },
+    "a.b": { "c.d": 1, "e[0]": ["bracketed"] },
+    "meta": {
+      "id": "meta-1",
+      "source": "mobile",
+      "flags": { "gift": false, "données": { "clé": "valeur", "schlüssel": "wert" } },
+      "meta": {
+        "meta": { "depth": 3, "": "nested empty property name" }
+      }
+    },
+    "": {
+      "name": "empty property name"
+    },
+    "notes": "leave at the door",
+    "shipping": {
+      "carrier": "PostNord",
+      "tracking": []
+    },
+    "primitives": ["text", "42", 3.5, false, null],
+    "mixed": [
+      "note",
+      "7",
+      false,
+      { "label": "fragile", "weight": "1.2 kg" },
+      { "label": "gift", "extra": { "label": "ribbon", "colour": "red" } },
+      ["inner", null, { "code": "N1", "label": "nested" }, [{ "code": "N2", "id": 5 }]],
+      null
+    ],
+    "duplicateKeys": { "name": "Ali", "name": "Reza", "age": 30 },
+    "escapedNames": { "quote\"d": 1, "back\\slash": { "quote\"d": 2, "caf\u00e9": 3 } },
+    "unicodeNormalization": { "café": 1, "cafe\u0301": 2 },
+    "controlCharacters": { "tab\there": 1, "line\nbreak": 2, "carriage\rreturn": { "tab\there": 3 } },
+    "supplementaryUnicode": { "🚀": 1, "status🚀": { "\uD83D\uDE80": 2 } },
+    "propertyOrder": { "foot": 4, "head": { "tail": { "beta": 3, "alpha": 2 }, "alpha": 1 } },
+    "propertyOrderInArrays": [
+      {
+        "rows": [
+          [{ "alpha": 3, "beta": 2 }],
+          { "cells": [{ "beta": 6, "alpha": 5 }], "alpha": 4 }
+        ],
+        "alpha": 1
+      },
+      [[{ "beta": 8, "alpha": 7 }]]
+    ],
+    "arrayElementOrder": {
+      "sameIds": [{ "alpha": 4, "beta": 3, "gamma": 5 }, { "beta": 2, "alpha": 1 }],
+      "differentIds": [{ "beta": 8, "gamma": 9 }, { "alpha": 6, "beta": 7 }]
+    },
+    "nestedArrayElementOrder": [
+      [[{ "item": 5 }], { "leaf": 6 }],
+      { "list": [{ "item": 3 }, [{ "list": [{ "group": 4 }] }]] },
+      { "group": { "item": 1, "group": { "item": 2 } } }
+    ],
+    "idListOrder": [{ "item": 3, "group": { "item": 4 } }, { "item": 1, "group": 2 }],
+    "arrayBoundaries": [[{ "name": 1 }, { "name": 2, "age": 3 }], []],
+    "primitiveValues": [123456789012345678901234567891, 15000000000, 1, "tab\there \"quoted\" back\\slash café 🚀"],
+    "duplicateTypeOrder": { "value": "world", "value": 456, "retyped": { "value": "hello", "value": false } },
+    "quotedNames": { "owner's name": "Reza", "child": { "it's valid": false, "it\\'s": 1 } },
+    "duplicateStructures": {
+      "objects": { "entry": { "south": 3, "north": 2 }, "entry": { "north": 1 } },
+      "partialObjects": { "entry": { "south": 5, "east": 6, "west": 7 }, "entry": { "north": 8, "south": 9, "west": 10 } },
+      "arrays": { "series": [[false], { "north": 4 }, [true, false]], "series": [5] },
+      "partialArrays": { "series": [{ "north": 1, "south": 2 }, [true]], "series": ["text"], "series": [3] },
+      "assignedObjects": { "entry": { "north": 1, "south": 2, "east": 3, "west": 4 }, "entry": { "north": 5, "south": 6 } },
+      "assignedElements": [{ "north": 1, "south": 2, "east": 3 }, { "north": 4 }],
+      "exactFirstElements": [{ "south": 1, "north": 2 }, { "north": 3 }]
+    },
+    "assignmentLimit": [
+      { "north": 1, "south": 2, "east": 3 }, { "north": 4 },
+      ["a", {}], [1, {}], [true, {}], [null, {}],
+      [[], {}], ["a", 1, {}], ["a", true, {}], ["a", null, {}],
+      ["a", [], {}], [1, true, {}], [1, null, {}], [1, [], {}],
+      [true, null, {}], [true, [], {}], [null, [], {}], ["a", 1, true, {}],
+      ["a", 1, null, {}], ["a", 1, [], {}], ["a", true, null, {}], ["a", true, [], {}],
+      ["a", null, [], {}], [1, true, null, {}], [1, true, [], {}], [1, null, [], {}],
+      [true, null, [], {}], ["a", 1, true, null, {}], ["a", 1, true, [], {}], ["a", 1, null, [], {}],
+      ["a", true, null, [], {}], [1, true, null, [], {}], ["a", 1, true, null, []]
+    ],
+    "speculativeLimit": [{ "kinds": [1, "a", true], "added": 1 }, { "kinds": [null], "added": 2 }],
+    "pathEscapes": {
+      "back\bspace\fform": 1,
+      "nul\u0000unit\u001f": 2,
+      "del\u007f": 3,
+      "nel\u0085": 4,
+      "zero\u200bwidth": 5,
+      "line\u2028sep": { "1st": 6, "2nd": 7 },
+      "no\u00a0break": 8,
+      "\ufeffbom": 9,
+      "𐐀plain": 10,
+      "tag\udb40\udc01": 11,
+      "٣rd": 12,
+      "_": { "del\u007f": "13" },
+      "\u001b[0m": 14,
+      "para\u2029graph": 15
+    },
+    "loneSurrogates": {
+      "\uD800": "high",
+      "\uDC00": "low",
+      "\uD83D\uDE00": "pair",
+      "\uD800": "high again",
+      "nested": { "\uDC00": [{ "\uD800": "\uDC00" }] },
+      "values": ["\uD800", "\uDC00", "\uD83D\uDE00", "x\uD800y"]
+    },
+    "loneSurrogateNames": {
+      "plainFirst": { "\uDBFF": 1, "plainInner": 2 },
+      "\uDE00\uD83D": "reversed pair",
+      "\uD83Dx": [{ "\uDFFFy": "under an array" }],
+      "é\u00e9\uD800😀\uD83D\uDE00": "literal and escaped",
+      "\uD800\"\\\/": "quote, backslash, solidus",
+      "\\uD800\uDC00": "escaped backslash before u",
+      "\uDC00\b\f\n\r\t": "short escapes",
+      "\uDE00\uD83D": "reversed pair again",
+      "escapedValue": "é\u00e9\uD800\"\\\/\b\f\n\r\t"
+    },
+    "normalizedValues": {
+      "casing": "masoud",
+      "padding": "hello",
+      "composed": "café",
+      "innerSpace": "helloworld",
+      "punctuated": "hello",
+      "emptyText": "",
+      "blankText": "\t \n",
+      "numberText": "123",
+      "numberValue": 123,
+      "booleanText": "true",
+      "booleanValue": true,
+      "nullText": "null",
+      "nullValue": null,
+      "turkish": "ISTANBUL",
+      "dottedCapital": "istanbul",
+      "dotlessSmall": "ISTANBUL",
+      "lonePadded": " X\uD800Y ",
+      "loneComposed": "café\uD800",
+      "repeatedWords": ["yes", "yes", "yes"],
+      "deep": { "deeper": { "greeting": " ZOË ÅKESSON" } }
+    },
+    "numericValues": {
+      "integerDecimal": 123.0,
+      "scientific": 100,
+      "signedZero": 0,
+      "exponentDecimal": 1000.000,
+      "trailingZeros": 1.50,
+      "fraction": 0.10,
+      "beyondDouble": 9007199254740993,
+      "hugeExponent": 1e101,
+      "tiny": 0,
+      "outsideDouble": 10E399,
+      "outsideDecimal": 7.9228162514264337593543950336E+28,
+      "extremeExponent": 0.1e100000000000000000000,
+      "extremeNegativeExponent": 10e-100000000000000000000,
+      "negative": -1500,
+      "zeroForms": -0.00e+5,
+      "amounts": { "values": [100, 2.5, 0] }
+    },
+    "fuzzyValues": {
+      "typo": "John Smith",
+      "transposed": "receive",
+      "caseAndPadding": "John Smith",
+      "boundary": "Smyth",
+      "shortName": "John",
+      "twoEdits": "Jonathan Smith",
+      "swappedPairs": "John Smith",
+      "wordOrder": "Smith John",
+      "unrelated": "orange",
+      "composedForms": "H\u00E9l\u00E8ne",
+      "accented": "Helene",
+      "digits": "SKU-10001",
+      "manyEdits": "Jon Smyth",
+      "people": { "names": ["John Smith", "Jane Do"] }
+    }
+  },
+  "stress": {
+    "": "emtpy key at root",
+    " ": "  Single   SPACE key ",
+    "\t": "tab kee",
+    "\u0000": "NUL key",
+    "$schema": "^https://example\\.com/schemas/\\w+\\.json$",
+    "$ref": "#/selfReference/loop",
+    "@context": { "@id": "urn:uuid:00000000-0000-0000-0000-000000000000", "@vocab": "https://schema.org/" },
+
+    "numbers": {
+      "zero": false,
+      "negativeZero": -0,
+      "negativeZeroFloat": -0.0,
+      "negativeZeroExp": -0e0,
+      "one": 1,
+      "oneFloat": 1,
+      "oneExp": 1e0,
+      "oneExpUpperPlus": 1E+0,
+      "oneExpPadded": 1e000,
+      "trailingZeros": 1.5,
+      "maxSafeInteger": 9007199254740991,
+      "maxSafePlusOne": 9007199254740992,
+      "maxSafePlusTwo": 9007199254740992,
+      "int64Max": 9223372036854775807,
+      "int64MaxPlusOne": 9223372036854775808,
+      "UInt64Max": 18446744073709551615,
+      "uint64MaxPlusOne": 18446744073709551616,
+      "int64Min": -9223372036854775808,
+      "int64MinMinusOne": -9223372036854775809,
+      "hugeInteger": 123456789012345678901234567890123456789012345678901234567891,
+      "doubleMax": 1.7976931348623157e308,
+      "justOverDoubleMax": 1.7976931348623159e308,
+      "overflowsToInfinity": 1e400,
+      "negativeOverflow": -1e400,
+      "smallestSubnormal": 5e-324,
+      "halfSmallestSubnormal": 2.5e-324,
+      "underflowsToZero": 1e-400,
+      "smallestNormal": 2.2250738585072014e-308,
+      "famousParserHang": 2.2250738585072011e-308,
+      "pointOne": 0.11,
+      "pointOnePlusPointTwo": 0.30000000000000004,
+      "roundingBoundary": 0.1000000000000000055511151231257827021181583404541015625,
+      "manyDigits": 3.14159265358979323846264338327950288419716939937510582097494459230781640628620899,
+      "exponentHuge": 1e99999,
+      "exponentTiny": 1e-99999,
+      "zeroWithHugeExponent": 0e99999,
+      "floatThatIsInteger": 1000,
+      "floatLookingInteger": 1e3,
+      "int32Max": "2147483647",
+      "int32MaxPlusOne": 2147483648,
+      "float32Boundary": 16777217
+    },
+
+    "strings": {
+      "empty": "",
+      "space": " ",
+      "allShortEscapes": "\" \\ \/ \b \f \n \r \t",
+      "solidusThreeWays": ["/", "\/", "\u002F"],
+      "sameLetterFourWays": ["A", "\u0041", "\u0041", "A"],
+      "hexCaseVariants": ["é", "é", "e\u0301"],
+      "nul": "\u0000",
+      "nulInMiddle": "before\u0000after",
+      "allC0Controls": "\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u0009\u000A\u000B\u000C\u000D\u000E\u000F\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001A\u001B\u001C\u001D\u001E\u001F",
+      "c1Controls": "\u0080\u0085\u009F",
+      "lineSeparators": "\u2028\u2029",
+      "loneHighSurrogate": "\uD800",
+      "loneLowSurrogate": "\uDFFF",
+      "reversedSurrogatePair": "\uDE00\uD83D",
+      "highSurrogateThenLetter": "\uD83Dx",
+      "validSurrogatePair": "😀",
+      "sameEmojiLiteral": "😀",
+      "noncharacters": "\uFFFE\uFFFF",
+      "byteOrderMarkInside": "\uFEFFtext",
+      "replacementCharacter": "\uFFFD",
+      "bidiOverride": "\u202Eevil\u202C",
+      "zeroWidth": "a\u200Bb\u200Cc\u200Dd\u2060e",
+      "combiningStack": "Z\u0351\u036B\u0343\u036A\u0302\u036B\u033D\u034F\u0334\u0319\u0324\u031E\u0349\u035A\u032F\u031E\u0320\u034D",
+      "nfcVsNfd": ["\u00C5", "A\u030A", "\u212B"],
+      "familyEmojiZwj": "👨‍👩‍👧‍👦",
+      "flagAndSkinTone": "🇸🇪 👍🏽 🏳️‍🌈",
+      "astralPlanes": "𝔘𝔫𝔦𝔠𝔬𝔡𝔢 𐍈 𠜎 🜁",
+      "mixedScripts": "English العربية עברית 日本語 한국어 ไทย हिन्दी Ελληνικά Русский",
+      "homoglyphs": ["paypal", "pаypаl", "ｐａｙｐａｌ"],
+      "looksLikeEscape": "\\u0041 \\n \\\\",
+      "looksLikeJson": "{\"a\": [1, 2, {\"b\": null}]}",
+      "doublyEncodedJson": "\"{\\\"a\\\": \\\"{\\\\\\\"b\\\\\\\": 1}\\\"}\"",
+      "looksLikeLiterals": ["NaN", "false", "true", "null", "Infinity", "-Infinity", "undefined", "None", "nil"],
+      "looksLikeNumbers": ["0", "-0", "1.0", "1e3", "0x1F", "007", "1_000", "+1", ".5", "5.", "١٢٣", "１２３"],
+      "looksLikeDates": ["2024-02-30", "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$", "2016-12-31T23:59:60Z", "0000-00-00", "1709288100", "24:00:00"],
+      "injectionBait": ["<script>alert(1)</script>", "'; DROP TABLE orders;--", "${7*7}", "{{7*7}}", "%s%s%n", "../../etc/passwd", "=cmd|' /C calc'!A0"],
+      "commentLookalikes": "not a comment",
+      "trailingBackslash": "ends with backslash\\",
+      "onlyQuotes": "\"\"\"\"",
+      "whitespaceZoo": "\u0009\u000B\u000C\u0020\u00A0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000",
+      "base64": "prefix eyJhIjoxfQ== suffix",
+      "longRun": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+
+    "keys": {
+      "": 1,
+      " ": 2,
+      "  ": 3,
+      "\u00A0": 4,
+      "\u200B": 5,
+      "\uFEFF": 6,
+      "\uD800": 7,
+      "a": 8,
+      "A": 9,
+      "\u0061": 10,
+      "а": 11,
+      "__proto__": { "polluted": "true" },
+      "constructor": { "prototype": { "polluted": true } },
+      "prototype": 12,
+      "toString": 13,
+      "valueOf": 14,
+      "hasOwnProperty": 15,
+      "length": 16,
+      "then": 17,
+      "toJSON": 18,
+      "0": 19,
+      "1": 20,
+      "-1": 21,
+      "01": 22,
+      "1.0": 23,
+      "1e3": 24,
+      "4294967295": 25,
+      "4294967296": 26,
+      "10": 27,
+      "9": 28,
+      "2": 29,
+      "null": 30,
+      "true": 31,
+      "undefined": 32,
+      "a.b": 33,
+      "a[0]": 34,
+      "a/b": 35,
+      "a~b": 36,
+      "~0": 37,
+      "~1": 38,
+      "$": 39,
+      "$.a": 40,
+      "$..*": 41,
+      "*": 42,
+      "..": 43,
+      "#": 44,
+      "@": 45,
+      "a b": 46,
+      "a\tb": 47,
+      "a\nb": 48,
+      "a\"b": 49,
+      "a\\b": 50,
+      "a'b": 51,
+      "a`b": 52,
+      "a:b": 53,
+      "a,b": 54,
+      "{}": 55,
+      "[]": 56,
+      "café": 57,
+      "cafe\u0301": 58,
+      "🚀": 59,
+      "\uD83D\uDE80\uFE0F": 60,
+      "名前": 61,
+      "اسم": 62,
+      "class": 63,
+      "function": 64,
+      "SELECT": 65,
+      "veryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKey": 66
+    },
+
+    "duplicates": {
+      "simple": { "k": 3, "k": 2, "k": 1 },
+      "typeChanging": { "k": 1, "k": "one", "k": [1], "k": { "k": 1 }, "k": null },
+      "escapedEqualsLiteral": { "a": 1, "\u0061": 2 },
+      "surrogateEqualsLiteral": { "😀": 1, "\uD83D\uDE00": 2 },
+      "normalizationNotEqual": { "\u00E9": 1, "e\u0301": 2 },
+      "nestedMergeOrReplace": { "o": { "x": 1, "y": 2 }, "o": { "y": 3, "z": 4 } },
+      "emptyKeyTwice": { "": "first", "": "second" },
+      "protoTwice": { "__proto__": { "a": 1 }, "__proto__": { "b": 2 } },
+      "interleaved": { "a": 5, "b": 4 }
+    },
+
+    "containers": {
+      "emptyObject": [],
+      "empty_array": [],
+      "nestedEmpties": [[], {}, [[]], [{}], { "": {} }, { "": [] }, [[[], []], [{}, {}]]],
+      "allNulls": null,
+      "objectOfNulls": { "a": null },
+      "singletons": [[1], ["a"], [true], [null], [[]], [{}]],
+      "everyTypeOnce": [null, true, false, 0, -1, 1.5, 10000000000, "", "s", [], {}, [null], { "k": null }],
+      "jagged": [[1], [1, 2], [], [7, 8, 9], [1, 2, 3, [4, [5, [6]]]], [[[[]]]]],
+      "tupleLike": [["meta", { "k": "v" }], ["tags", ["a", "b"]], ["name", "x"], ["id", 1]],
+      "sameShapeDifferentOrder": [{ "a": 1, "b": 2, "c": 3 }, { "c": 3, "a": 1, "b": 2 }, { "b": 2, "c": 3, "a": 1 }],
+      "almostSameShape": [{ "a": 1, "b": 2 }, { "a": 1 }, { "a": 1, "b": null }, { "a": "1", "b": 2 }, { "a": 1, "B": 2 }, {}],
+      "fieldTypeDrift": [{ "v": 1 }, { "v": 1.5 }, { "v": "1" }, { "v": true }, { "v": null }, { "v": [1] }, { "v": { "v": 1 } }, {}],
+      "arrayOrScalar": [{ "tag": ["a"] }, { "tag": ["a", "b"] }, { "tag": [] }, { "tag": null }],
+      "indexLikeObject": { "0": "a", "1": "b", "2": "c", "length": "3" },
+      "unorderedIndexObject": { "2": "c", "0": "a", "10": "k", "1": "b" },
+      "sparseLike": [1, null, 5],
+      "matrix3d": [[[1, 2], [3, 4]], [[5, 6], [7, 8]], [[], [9]]]
+    },
+
+    "recursiveNames": {
+      "node": {
+        "node": {
+          "node": {
+            "node": { "node": null, "value": " LEAF", "children": [] },
+            "value": 3,
+            "children": [{ "node": { "node": [], "value": [] } }]
+          },
+          "value": "two",
+          "children": [[{ "node": 1 }], { "children": [{ "children": [{ "children": [] }] }] }]
+        },
+        "value": 1,
+        "children": [{ "value": { "value": { "value": "value" } } }]
+      }
+    },
+
+    "selfReference": {
+      "loop": { "$ref": "#/selfReference/loop" },
+      "mutualA": { "$ref": "#/selfReference/mutualB" },
+      "mutualB": { "$ref": "#/selfReference/mutualA" },
+      "toRoot": { "$ref": "#" },
+      "toEmptyKey": { "$ref": "#/" },
+      "toEscapedPointer": { "$ref": "#/keys/a~1b" },
+      "toTildePointer": { "$ref": "#/keys/~00" },
+      "dangling": { "$ref": "#/does/not/exist" },
+      "refWithSiblings": { "$ref": "#/numbers/zero", "description": "siblings ignord or merged" },
+      "refAsData": { "$ref": 42 },
+      "anchors": { "$dynamicRef": "#here", "$id": "urn:a", "$anchor": "here" }
+    },
+
+    "addedInB": { "note": "only in the second file", "list": [1, 2, 3] },
+
+    "polymorphism": [
+      { "type": "circle", "radius": "1" },
+      { "type": "group", "members": [{ "type": "circle", "radius": 0.5 }, { "type": "group", "members": [] }] },
+      { "type": "rect", "w": 2, "h": 3 },
+      { "type": "Circle", "radius": "1" },
+      { "type": ["circle", "rect"] },
+      { "type": null },
+      { "TYPE": "circle" },
+      { "kind": "circle", "type": "rect", "__typename": "Group", "$type": "System.String", "@type": "Thing" },
+      {}
+    ],
+
+    "deepArray":
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+        "100 levels dwon"
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]],
+
+    "deepObject":
+      {"a":{"a":{"a":{"a":{"a":
+      {"a":{"a":{"a":{"a":{"a":
+      {"a":{"a":{"a":{"a":{"a":
+      {"a":{"a":{"a":{"a":{"a":
+      {"a":{"a":{"a":{"a":{"a":
+        "30 levels down"
+      }}}}}
+      }}}}}
+      }}}}}
+      }}}}}
+      }}}}},
+
+    "deepAlternating":
+      [{"":[{"":[{"":[{"":[{"":
+      [{"":[{"":[{"":[{"":[{"":
+        [[], {}, [{}], {"": []}]
+      }]}]}]}]}]
+      }]}]}]}]}],
+
+    "whitespace"	:	{
+  "tabsBetweenTokens"	:	[	1	,	2	]	,
+      "crlfMix": [1,
+  2,3],
+      "noSpaces" : { "a" : [ 1, 2, { "b" : null } ] },
+      "lotsOfSpace"       :       [       ]       ,
+      "emptyWithNewlines": {
+
+
+      }
+    },
+
+    "lookalikeValues": {
+      "nullVsStringVsMissing": [{ "v": null }, { "v": "null" }, { "v": "" }, { "v": 0 }, { "v": false }, { "v": [] }, { "v": {} }, {}],
+      "booleans": [true, "true", 1, "1", "yes", "Y", "on", false, "false", 0, "0", "no", "N", "off", ""],
+      "equalNumbersDifferentText": [1, 1.0, 1e0, 10e-1, 0.1e1, 100E-2],
+      "notEqualButClose": [0.1, 0.10000000000000001, 0.1000000000000000055511151231257827, 0.09999999999999999]
+    },
+
+    "": "empty key at root, again",
+    "$schema": "different value, duplicate of a root key",
+    "numbers ": "note the trailling space in the key",
+    "Numbers": "root key, a case variant of",
+    "last": [{ "last": [{ "last": [{ "last": "End " }] }] }]
+  },
+  "publicApi": {
+    "guideScenario": {
+      "orderId": "ORD-1042",
+      "currency": "USD",
+      "customer": { "name": "alice chen", "city": "Seattle", "contact": "John Smith" },
+      "items": [{ "sku": "PEN", "quantity": 2 }, { "sku": "BOOK", "quantity": 1 }],
+      "total": 30.0,
+      "paid": false,
+      "delivery": { "days": 5, "note": "Leave at door" },
+      "coupon": "WELCOME"
+    },
+    "basic": { "name": "Ann", "age": 31 },
+    "nested": { "profile": { "city": "Rome" }, "tags": ["b", "a"], "new": [1] },
+    "arrayValues": [3, 2, 1],
+    "arrayObjects": [{ "id": 2, "name": "B" }, { "id": 1, "name": "X" }],
+    "surplus": [1, 2, 3],
+    "duplicates": { "entry": { "value": 2 }, "entry": { "value": 3 } },
+    "shapeValues": [{ "id": 9 }],
+    "emptyObject": {},
+    "emptyArray": [],
+    "fuzzyAssignment": ["Jon Smyth", "Jon Smith"],
+    "nestedStringified": { "payload": "{ \"a\": 1 }" },
+    "invalidText": "not json"
+  }
+}

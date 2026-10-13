@@ -1,0 +1,857 @@
+{
+  "core": {
+    "id": "ord-2024-000187",
+    "version": 3,
+    "active": true,
+    "deletedAt": null,
+    "customer": {
+      "id": 48213,
+      "name": "Zoë Åkesson",
+      "e-mail": "zoe@example.com",
+      "first name": "Zoë",
+      "名前": "ゾーイ",
+      "größe": 172.5,
+      "preferences": {},
+      "tags": [],
+      "addresses": [
+        {
+          "id": "addr-1",
+          "type": "billing",
+          "street": "Storgatan 12",
+          "city": "Göteborg",
+          "geo": { "lat": 57.7089, "lng": 11.9746 },
+          "primary": true
+        },
+        {
+          "id": "addr-2",
+          "type": "shipping",
+          "street": "Hamngatan 4",
+          "city": "Malmö",
+          "geo": { "lat": 55.605, "lng": 13.0038 },
+          "primary": false,
+          "instructions": null
+        }
+      ]
+    },
+    "items": [
+      {
+        "id": 1,
+        "sku": "KB-ISO-105",
+        "name": "Mechanical keyboard",
+        "quantity": 1,
+        "price (USD)": 129.99,
+        "discount %": 0,
+        "attributes": {
+          "name": "layout",
+          "value": "ISO",
+          "options": ["ISO", "ANSI", "JIS"]
+        },
+        "bundle": {
+          "items": [
+            { "id": 11, "name": "Keycap puller", "quantity": 1 },
+            { "id": 12, "name": "USB-C cable", "quantity": 2, "length/cm": 180 }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "sku": "MS-WL-02",
+        "name": "Wireless mouse",
+        "quantity": 2,
+        "price (USD)": 49.5,
+        "discount %": 10,
+        "attributes": {
+          "name": "colour",
+          "value": "graphite",
+          "options": []
+        },
+        "bundle": {}
+      }
+    ],
+    "matrix": [
+      [1, 2, 3],
+      [4, 5, 6],
+      []
+    ],
+    "history": [
+      "created",
+      42,
+      true,
+      null,
+      { "event": "paid", "at": "2024-03-01T10:15:00Z", "meta": { "gateway": "stripe", "attempt": 1 } },
+      ["retry", 2, { "event": "webhook", "meta": { "status": 200 } }],
+      []
+    ],
+    "payment": {
+      "method": "card",
+      "amount": 228.99,
+      "currency": "USD",
+      "captured": true,
+      "card": {
+        "brand": "visa",
+        "last4": "4242",
+        "expiry": { "month": 12, "year": 2027 }
+      },
+      "refunds": []
+    },
+    "$schema": "https://example.com/schemas/order.json",
+    "@context": { "@vocab": "https://schema.org/", "id": "@id" },
+    "a.b": { "c.d": 1, "e[0]": "bracketed" },
+    "meta": {
+      "id": "meta-1",
+      "source": "web",
+      "flags": { "gift": false, "priority": true, "données": { "clé": "valeur" } },
+      "meta": {
+        "meta": { "depth": 3, "name": "innermost", "": "nested empty property name" }
+      }
+    },
+    "": {
+      "name": "empty property name"
+    },
+    "notes": null,
+    "caseVariants": { "name": 1, "Name": 2, "NAME": { "name": 3 } },
+    "primitives": ["text", 42, 3.5, true, false, null],
+    "mixed": [
+      "note",
+      7,
+      true,
+      null,
+      { "label": "fragile", "weight": 1.2 },
+      { "label": "gift", "extra": { "label": "ribbon", "name": "satin" }, "code": "G1" },
+      ["inner", 1, false, null, { "label": "nested", "code": "N1" }, [{ "code": "N2", "id": 5 }]]
+    ],
+    "duplicateKeys": { "name": "Ali", "name": "Reza", "age": 30 },
+    "escapedNames": { "quote\"d": 1, "back\\slash": { "quote\"d": 2, "caf\u00e9": 3 } },
+    "unicodeNormalization": { "café": 1, "cafe\u0301": 2 },
+    "controlCharacters": { "tab\there": 1, "line\nbreak": 2, "carriage\rreturn": { "tab\there": 3 } },
+    "supplementaryUnicode": { "🚀": 1, "status🚀": { "\uD83D\uDE80": 2 } },
+    "comment": "",
+    "propertyOrder": { "head": { "alpha": 1, "tail": { "alpha": 2, "beta": 3 } }, "foot": 4 },
+    "propertyOrderInArrays": [
+      {
+        "alpha": 1,
+        "rows": [
+          [{ "beta": 2, "alpha": 3 }],
+          { "alpha": 4, "cells": [{ "alpha": 5, "beta": 6 }] }
+        ]
+      },
+      [[{ "alpha": 7, "beta": 8 }]]
+    ],
+    "arrayElementOrder": {
+      "sameIds": [{ "alpha": 1, "beta": 2 }, { "beta": 3, "alpha": 4, "gamma": 5 }],
+      "differentIds": [{ "alpha": 6, "beta": 7 }, { "beta": 8, "gamma": 9 }]
+    },
+    "nestedArrayElementOrder": [
+      { "group": { "item": 1, "group": { "item": 2 } } },
+      { "list": [{ "item": 3 }, [{ "list": [{ "group": 4 }] }]] },
+      [[{ "item": 5 }], { "leaf": 6 }]
+    ],
+    "idListOrder": [{ "item": 1, "group": 2 }, { "item": 3, "group": { "item": 4 } }],
+    "arrayBoundaries": [[{ "name": 1 }], [{ "name": 2, "age": 3 }]],
+    "primitiveValues": [123456789012345678901234567890, 1.5E+10, 1.0, "tab\there \"quoted\" back\\slash café 🚀"],
+    "duplicateTypeOrder": { "value": 123, "value": "hello", "retyped": { "value": true, "value": "hello" } },
+    "quotedNames": { "owner's name": "Ali", "child": { "it's valid": true } },
+    "duplicateStructures": {
+      "objects": { "entry": { "north": 1 }, "entry": { "north": 2, "south": 3 } },
+      "partialObjects": { "entry": { "north": 1, "south": 2 }, "entry": { "south": 3, "east": 4 } },
+      "arrays": { "series": [1, 2], "series": [{ "north": 1 }, [true]] },
+      "assignedObjects": { "entry": { "north": 1, "south": 2, "east": 3 }, "entry": { "east": 4, "west": 5 } },
+      "assignedElements": [{ "north": 1, "south": 2 }, { "south": 3 }]
+    },
+    "assignmentLimit": [
+      { "north": 1, "south": 2 }, { "south": 3 },
+      ["a"], [1], [true], [null], [[]],
+      ["a", 1], ["a", true], ["a", null], ["a", []], [1, true],
+      [1, null], [1, []], [true, null], [true, []], [null, []],
+      ["a", 1, true], ["a", 1, null], ["a", 1, []], ["a", true, null], ["a", true, []],
+      ["a", null, []], [1, true, null], [1, true, []], [1, null, []], [true, null, []],
+      ["a", 1, true, null], ["a", 1, true, []], ["a", 1, null, []], ["a", true, null, []], [1, true, null, []],
+      ["a", 1, true, null, []]
+    ],
+    "speculativeLimit": [{ "kinds": [1, "a", true] }, { "kinds": [null] }],
+    "pathEscapes": {
+      "back\bspace\fform": 1,
+      "nul\u0000unit\u001f": 2,
+      "del\u007f": 3,
+      "nel\u0085": 4,
+      "zero\u200bwidth": 5,
+      "line\u2028sep": { "1st": 6 },
+      "no\u00a0break": 7,
+      "\ufeffbom": 8,
+      "𐐀plain": 9,
+      "tag\udb40\udc01": 10,
+      "٣rd": 11,
+      "_": { "del\u007f": 12 }
+    },
+    "loneSurrogates": {
+      "\uD800": "high",
+      "\uDC00": "low",
+      "\uD83D\uDE00": "pair",
+      "\uD800": "high again",
+      "nested": { "\uDC00": [{ "\uD800": "\uDC00" }] },
+      "values": ["\uD800", "\uDC00", "\uD83D\uDE00", "x\uD800y"]
+    },
+    "loneSurrogateNames": {
+      "plainFirst": { "\uDBFF": 1, "plainInner": 2 },
+      "\uDE00\uD83D": "reversed pair",
+      "\uD83Dx": [{ "\uDFFFy": "under an array" }],
+      "é\u00e9\uD800😀\uD83D\uDE00": "literal and escaped",
+      "\uD800\"\\\/": "quote, backslash, solidus",
+      "\\uD800\uDC00": "escaped backslash before u",
+      "\uDC00\b\f\n\r\t": "short escapes",
+      "\uDE00\uD83D": "reversed pair again",
+      "escapedValue": "é\u00e9\uD800\"\\\/\b\f\n\r\t"
+    },
+    "normalizedValues": {
+      "casing": "Masoud",
+      "padding": "  Hello  ",
+      "composed": "café",
+      "innerSpace": "hello world",
+      "punctuated": "Hello!",
+      "emptyText": "",
+      "blankText": "   ",
+      "numberText": "123",
+      "numberValue": 123,
+      "booleanText": "true",
+      "booleanValue": true,
+      "nullText": "null",
+      "nullValue": null,
+      "turkish": "istanbul",
+      "dottedCapital": "İstanbul",
+      "dotlessSmall": "ıstanbul",
+      "lonePadded": "x\uD800y",
+      "loneComposed": "café\uD800",
+      "repeatedWords": ["Yes", "YES", " yes "],
+      "deep": { "deeper": { "greeting": "Zoë Åkesson" } }
+    },
+    "numericValues": {
+      "integerDecimal": 123,
+      "scientific": 1e2,
+      "signedZero": -0,
+      "exponentDecimal": 1E+3,
+      "trailingZeros": 1.5,
+      "fraction": 0.1,
+      "beyondDouble": 9007199254740992,
+      "hugeExponent": 1e100,
+      "tiny": 1e-100,
+      "outsideDouble": 1e400,
+      "outsideDecimal": 79228162514264337593543950336,
+      "extremeExponent": 1e99999999999999999999,
+      "extremeNegativeExponent": 1e-99999999999999999999,
+      "negative": -1.5e3,
+      "zeroForms": 0.0,
+      "amounts": { "values": [1e2, 2.50, -0.0] }
+    },
+    "fuzzyValues": {
+      "typo": "Jon Smith",
+      "transposed": "recieve",
+      "caseAndPadding": "  jon smith ",
+      "boundary": "Smith",
+      "shortName": "Jon",
+      "twoEdits": "Jonathon Smyth",
+      "swappedPairs": "Jhon Smiht",
+      "wordOrder": "John Smith",
+      "unrelated": "apple",
+      "composedForms": "He\u0301le\u0300ne",
+      "accented": "H\u00E9l\u00E8ne",
+      "digits": "SKU-10000",
+      "manyEdits": "Johnny Smith",
+      "people": { "names": ["Jon Smith", "Jane Doe"] }
+    }
+  },
+  "stress": {
+    "": "empty key at root",
+    " ": "single space key",
+    "\t": "tab key",
+    "\u0000": "NUL key",
+    "$schema": "https://example.com/schemas/torture.json",
+    "$ref": "#/selfReference/loop",
+    "@context": { "@vocab": "https://schema.org/", "@id": "urn:uuid:00000000-0000-0000-0000-000000000000" },
+
+    "numbers": {
+      "zero": 0,
+      "negativeZero": -0,
+      "negativeZeroFloat": -0.0,
+      "negativeZeroExp": -0e0,
+      "one": 1,
+      "oneFloat": 1.0,
+      "oneExp": 1e0,
+      "oneExpUpperPlus": 1E+0,
+      "oneExpPadded": 1e000,
+      "trailingZeros": 1.5000000000000000000000000,
+      "maxSafeInteger": 9007199254740991,
+      "maxSafePlusOne": 9007199254740992,
+      "maxSafePlusTwo": 9007199254740993,
+      "int64Max": 9223372036854775807,
+      "int64MaxPlusOne": 9223372036854775808,
+      "uint64Max": 18446744073709551615,
+      "uint64MaxPlusOne": 18446744073709551616,
+      "int64Min": -9223372036854775808,
+      "int64MinMinusOne": -9223372036854775809,
+      "hugeInteger": 123456789012345678901234567890123456789012345678901234567890,
+      "doubleMax": 1.7976931348623157e308,
+      "justOverDoubleMax": 1.7976931348623159e308,
+      "overflowsToInfinity": 1e400,
+      "negativeOverflow": -1e400,
+      "smallestSubnormal": 5e-324,
+      "halfSmallestSubnormal": 2.5e-324,
+      "underflowsToZero": 1e-400,
+      "smallestNormal": 2.2250738585072014e-308,
+      "famousParserHang": 2.2250738585072011e-308,
+      "pointOne": 0.1,
+      "pointOnePlusPointTwo": 0.30000000000000004,
+      "roundingBoundary": 0.1000000000000000055511151231257827021181583404541015625,
+      "manyDigits": 3.14159265358979323846264338327950288419716939937510582097494459230781640628620899,
+      "exponentHuge": 1e99999,
+      "exponentTiny": 1e-99999,
+      "zeroWithHugeExponent": 0e99999,
+      "floatThatIsInteger": 1e3,
+      "floatLookingInteger": 1000.0,
+      "int32Max": 2147483647,
+      "int32MaxPlusOne": 2147483648,
+      "float32Boundary": 16777217
+    },
+
+    "strings": {
+      "empty": "",
+      "space": " ",
+      "allShortEscapes": "\" \\ \/ \b \f \n \r \t",
+      "solidusThreeWays": ["/", "\/", "\u002F"],
+      "sameLetterFourWays": ["A", "\u0041", "\u0041", "A"],
+      "hexCaseVariants": ["\u00e9", "\u00E9", "é"],
+      "nul": "\u0000",
+      "nulInMiddle": "before\u0000after",
+      "allC0Controls": "\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\u0009\u000A\u000B\u000C\u000D\u000E\u000F\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001A\u001B\u001C\u001D\u001E\u001F",
+      "delete": "\u007F",
+      "c1Controls": "\u0080\u0085\u009F",
+      "lineSeparators": "\u2028\u2029",
+      "loneHighSurrogate": "\uD800",
+      "loneLowSurrogate": "\uDFFF",
+      "reversedSurrogatePair": "\uDE00\uD83D",
+      "highSurrogateThenLetter": "\uD83Dx",
+      "validSurrogatePair": "\uD83D\uDE00",
+      "sameEmojiLiteral": "😀",
+      "noncharacters": "\uFFFE\uFFFF",
+      "byteOrderMarkInside": "\uFEFFtext",
+      "replacementCharacter": "\uFFFD",
+      "bidiOverride": "\u202Eevil\u202C",
+      "zeroWidth": "a\u200Bb\u200Cc\u200Dd\u2060e",
+      "combiningStack": "Z\u0351\u036B\u0343\u036A\u0302\u036B\u033D\u034F\u0334\u0319\u0324\u031E\u0349\u035A\u032F\u031E\u0320\u034D",
+      "nfcVsNfd": ["\u00C5", "A\u030A", "\u212B"],
+      "familyEmojiZwj": "👨‍👩‍👧‍👦",
+      "flagAndSkinTone": "🇸🇪 👍🏽 🏳️‍🌈",
+      "astralPlanes": "𝔘𝔫𝔦𝔠𝔬𝔡𝔢 𐍈 𠜎 🜁",
+      "mixedScripts": "English العربية עברית 日本語 한국어 ไทย हिन्दी Ελληνικά Русский",
+      "homoglyphs": ["paypal", "pаypаl", "ｐａｙｐａｌ"],
+      "looksLikeEscape": "\\u0041 \\n \\\\",
+      "looksLikeJson": "{\"a\": [1, 2, {\"b\": null}]}",
+      "doublyEncodedJson": "\"{\\\"a\\\": \\\"{\\\\\\\"b\\\\\\\": 1}\\\"}\"",
+      "looksLikeLiterals": ["null", "true", "false", "NaN", "Infinity", "-Infinity", "undefined", "None", "nil"],
+      "looksLikeNumbers": ["0", "-0", "1.0", "1e3", "0x1F", "007", "1_000", "+1", ".5", "5.", "١٢٣", "１２３"],
+      "looksLikeDates": ["2024-02-30", "2024-03-01T10:15:00Z", "2016-12-31T23:59:60Z", "0000-00-00", "1709288100", "24:00:00"],
+      "injectionBait": ["<script>alert(1)</script>", "'; DROP TABLE orders;--", "${7*7}", "{{7*7}}", "%s%s%n", "../../etc/passwd", "=cmd|' /C calc'!A0"],
+      "commentLookalikes": "// not a comment /* still not */ # nope",
+      "trailingBackslash": "ends with backslash\\",
+      "onlyQuotes": "\"\"\"\"",
+      "whitespaceZoo": "\u0009\u000B\u000C\u0020\u00A0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000",
+      "base64": "eyJhIjoxfQ==",
+      "longRun": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+
+    "keys": {
+      "": 1,
+      " ": 2,
+      "  ": 3,
+      "\u00A0": 4,
+      "\u200B": 5,
+      "\uFEFF": 6,
+      "\uD800": 7,
+      "a": 8,
+      "A": 9,
+      "\u0061": 10,
+      "а": 11,
+      "__proto__": { "polluted": true },
+      "constructor": { "prototype": { "polluted": true } },
+      "prototype": 12,
+      "toString": 13,
+      "valueOf": 14,
+      "hasOwnProperty": 15,
+      "length": 16,
+      "then": 17,
+      "toJSON": 18,
+      "0": 19,
+      "1": 20,
+      "-1": 21,
+      "01": 22,
+      "1.0": 23,
+      "1e3": 24,
+      "4294967295": 25,
+      "4294967296": 26,
+      "10": 27,
+      "9": 28,
+      "2": 29,
+      "null": 30,
+      "true": 31,
+      "undefined": 32,
+      "a.b": 33,
+      "a[0]": 34,
+      "a/b": 35,
+      "a~b": 36,
+      "~0": 37,
+      "~1": 38,
+      "$": 39,
+      "$.a": 40,
+      "$..*": 41,
+      "*": 42,
+      "..": 43,
+      "#": 44,
+      "@": 45,
+      "a b": 46,
+      "a\tb": 47,
+      "a\nb": 48,
+      "a\"b": 49,
+      "a\\b": 50,
+      "a'b": 51,
+      "a`b": 52,
+      "a:b": 53,
+      "a,b": 54,
+      "{}": 55,
+      "[]": 56,
+      "café": 57,
+      "cafe\u0301": 58,
+      "🚀": 59,
+      "\uD83D\uDE80\uFE0F": 60,
+      "名前": 61,
+      "اسم": 62,
+      "class": 63,
+      "function": 64,
+      "SELECT": 65,
+      "veryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKeyveryLongKey": 66
+    },
+
+    "duplicates": {
+      "simple": { "k": 1, "k": 2, "k": 3 },
+      "typeChanging": { "k": 1, "k": "one", "k": [1], "k": { "k": 1 }, "k": null },
+      "escapedEqualsLiteral": { "a": 1, "\u0061": 2 },
+      "surrogateEqualsLiteral": { "😀": 1, "\uD83D\uDE00": 2 },
+      "normalizationNotEqual": { "\u00E9": 1, "e\u0301": 2 },
+      "nestedMergeOrReplace": { "o": { "x": 1, "y": 2 }, "o": { "y": 3, "z": 4 } },
+      "emptyKeyTwice": { "": "first", "": "second" },
+      "protoTwice": { "__proto__": { "a": 1 }, "__proto__": { "b": 2 } },
+      "interleaved": { "a": 1, "b": 2, "a": 3, "b": 4, "a": 5 }
+    },
+
+    "containers": {
+      "emptyObject": {},
+      "emptyArray": [],
+      "nestedEmpties": [[], {}, [[]], [{}], { "": {} }, { "": [] }, [[[], []], [{}, {}]]],
+      "allNulls": [null, null, null, null],
+      "objectOfNulls": { "a": null, "b": null },
+      "singletons": [[1], ["a"], [true], [null], [[]], [{}]],
+      "everyTypeOnce": [null, true, false, 0, -1, 1.5, 1e10, "", "s", [], {}, [null], { "k": null }],
+      "jagged": [[1], [1, 2], [], [1, 2, 3, [4, [5, [6]]]], [[[[]]]]],
+      "tupleLike": [["id", 1], ["name", "x"], ["tags", ["a", "b"]], ["meta", { "k": "v" }]],
+      "sameShapeDifferentOrder": [{ "a": 1, "b": 2, "c": 3 }, { "c": 3, "a": 1, "b": 2 }, { "b": 2, "c": 3, "a": 1 }],
+      "almostSameShape": [{ "a": 1, "b": 2 }, { "a": 1 }, { "a": 1, "b": null }, { "a": "1", "b": 2 }, { "a": 1, "B": 2 }, {}],
+      "fieldTypeDrift": [{ "v": 1 }, { "v": 1.5 }, { "v": "1" }, { "v": true }, { "v": null }, { "v": [1] }, { "v": { "v": 1 } }, {}],
+      "arrayOrScalar": [{ "tag": "a" }, { "tag": ["a", "b"] }, { "tag": [] }, { "tag": null }],
+      "indexLikeObject": { "0": "a", "1": "b", "2": "c", "length": 3 },
+      "unorderedIndexObject": { "2": "c", "0": "a", "10": "k", "1": "b" },
+      "sparseLike": [1, null, null, null, 5],
+      "matrix3d": [[[1, 2], [3, 4]], [[5, 6], [7, 8]], [[], [9]], []]
+    },
+
+    "recursiveNames": {
+      "node": {
+        "node": {
+          "node": {
+            "node": { "node": null, "value": "leaf", "children": [] },
+            "value": 3,
+            "children": [{ "node": { "node": [], "value": [] } }]
+          },
+          "value": "two",
+          "children": [[{ "node": 1 }], { "children": [{ "children": [{ "children": [] }] }] }]
+        },
+        "value": 1.0,
+        "children": [{ "value": { "value": { "value": "value" } } }]
+      }
+    },
+
+    "selfReference": {
+      "loop": { "$ref": "#/selfReference/loop" },
+      "mutualA": { "$ref": "#/selfReference/mutualB" },
+      "mutualB": { "$ref": "#/selfReference/mutualA" },
+      "toRoot": { "$ref": "#" },
+      "toEmptyKey": { "$ref": "#/" },
+      "toEscapedPointer": { "$ref": "#/keys/a~1b" },
+      "toTildePointer": { "$ref": "#/keys/~00" },
+      "dangling": { "$ref": "#/does/not/exist" },
+      "refWithSiblings": { "$ref": "#/numbers/zero", "description": "siblings ignored or merged?" },
+      "refAsData": { "$ref": 42 },
+      "anchors": { "$id": "urn:a", "$anchor": "here", "$dynamicRef": "#here" }
+    },
+
+    "polymorphism": [
+      { "type": "circle", "radius": 1 },
+      { "type": "rect", "w": 2, "h": 3 },
+      { "type": "group", "members": [{ "type": "circle", "radius": 0.5 }, { "type": "group", "members": [] }] },
+      { "type": "Circle", "radius": "1" },
+      { "type": ["circle", "rect"] },
+      { "type": null },
+      { "TYPE": "circle" },
+      { "kind": "circle", "type": "rect", "__typename": "Group", "$type": "System.String", "@type": "Thing" },
+      {}
+    ],
+
+    "deepArray":
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+      [[[[[[[[[[
+        "100 levels down"
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]]
+      ]]]]]]]]]],
+
+    "deepObject":
+      {"a":{"a":{"a":{"a":{"a":
+      {"a":{"a":{"a":{"a":{"a":
+      {"a":{"a":{"a":{"a":{"a":
+      {"a":{"a":{"a":{"a":{"a":
+      {"a":{"a":{"a":{"a":{"a":
+      {"a":{"a":{"a":{"a":{"a":
+        "30 levels down"
+      }}}}}
+      }}}}}
+      }}}}}
+      }}}}}
+      }}}}}
+      }}}}},
+
+    "deepAlternating":
+      [{"":[{"":[{"":[{"":[{"":
+      [{"":[{"":[{"":[{"":[{"":
+        [[], {}, [{}], {"": []}]
+      }]}]}]}]}]
+      }]}]}]}]}],
+
+    "whitespace"	:	{
+  "tabsBetweenTokens"	:	[	1	,	2	]	,
+      "crlfMix": [1,
+  2,3],
+      "noSpaces":{"a":[1,2,{"b":null}]},
+      "lotsOfSpace"       :       [       ]       ,
+      "emptyWithNewlines": {
+
+
+      }
+    },
+
+    "lookalikeValues": {
+      "nullVsStringVsMissing": [{ "v": null }, { "v": "null" }, { "v": "" }, { "v": 0 }, { "v": false }, { "v": [] }, { "v": {} }, {}],
+      "booleans": [true, "true", 1, "1", "yes", "Y", "on", false, "false", 0, "0", "no", "N", "off", ""],
+      "equalNumbersDifferentText": [1, 1.0, 1e0, 10e-1, 0.1e1, 100E-2],
+      "notEqualButClose": [0.1, 0.10000000000000001, 0.1000000000000000055511151231257827, 0.09999999999999999]
+    },
+
+    "": "empty key at root, again",
+    "$schema": "duplicate of a root key, different value",
+    "numbers ": "note the trailing space in the key",
+    "Numbers": "case variant of a root key",
+    "last": [{ "last": [{ "last": [{ "last": "end" }] }] }]
+  },
+  "stressChanges": [
+    {
+      "category": "Normalized",
+      "inA": "\" \": \"single space key\"",
+      "inB": "\" \": \"  Single   SPACE key \""
+    },
+    {
+      "category": "Normalized",
+      "inA": "\"value\": \"leaf\"",
+      "inB": "\"value\": \" LEAF\""
+    },
+    {
+      "category": "Normalized",
+      "inA": "\"last\": \"end\"",
+      "inB": "\"last\": \"End \""
+    },
+    {
+      "category": "Fuzzy",
+      "inA": "\"\": \"empty key at root\"",
+      "inB": "\"\": \"emtpy key at root\""
+    },
+    {
+      "category": "Fuzzy",
+      "inA": "\"tab key\"",
+      "inB": "\"tab kee\""
+    },
+    {
+      "category": "Fuzzy",
+      "inA": "\"siblings ignored or merged?\"",
+      "inB": "\"siblings ignord or merged\""
+    },
+    {
+      "category": "Fuzzy",
+      "inA": "\"note the trailing space in the key\"",
+      "inB": "\"note the trailling space in the key\""
+    },
+    {
+      "category": "Fuzzy (at depth 100)",
+      "inA": "\"100 levels down\"",
+      "inB": "\"100 levels dwon\""
+    },
+    {
+      "category": "Token",
+      "inA": "\"case variant of a root key\"",
+      "inB": "\"root key, a case variant of\""
+    },
+    {
+      "category": "Token",
+      "inA": "\"duplicate of a root key, different value\"",
+      "inB": "\"different value, duplicate of a root key\""
+    },
+    {
+      "category": "Numeric",
+      "inA": "\"floatThatIsInteger\": 1e3",
+      "inB": "\"floatThatIsInteger\": 1000"
+    },
+    {
+      "category": "Numeric",
+      "inA": "\"floatLookingInteger\": 1000.0",
+      "inB": "\"floatLookingInteger\": 1e3"
+    },
+    {
+      "category": "Numeric",
+      "inA": "\"oneFloat\": 1.0",
+      "inB": "\"oneFloat\": 1"
+    },
+    {
+      "category": "Numeric",
+      "inA": "\"trailingZeros\": 1.5000000000000000000000000",
+      "inB": "\"trailingZeros\": 1.5"
+    },
+    {
+      "category": "Numeric",
+      "inA": "\"value\": 1.0,",
+      "inB": "\"value\": 1,"
+    },
+    {
+      "category": "Numeric",
+      "inA": "1.5, 1e10, \"\"",
+      "inB": "1.5, 10000000000, \"\""
+    },
+    {
+      "category": "Numeric trap (equal as double, different as decimal)",
+      "inA": "\"maxSafePlusTwo\": 9007199254740993",
+      "inB": "\"maxSafePlusTwo\": 9007199254740992"
+    },
+    {
+      "category": "Numeric trap (equal as double, different as decimal)",
+      "inA": "8901234567890,",
+      "inB": "8901234567891,"
+    },
+    {
+      "category": "Value changed (real difference)",
+      "inA": "\"pointOne\": 0.1,",
+      "inB": "\"pointOne\": 0.11,"
+    },
+    {
+      "category": "TypeCoerced",
+      "inA": "\"int32Max\": 2147483647",
+      "inB": "\"int32Max\": \"2147483647\""
+    },
+    {
+      "category": "TypeCoerced",
+      "inA": "{ \"type\": \"circle\", \"radius\": 1 }",
+      "inB": "{ \"type\": \"circle\", \"radius\": \"1\" }"
+    },
+    {
+      "category": "TypeCoerced",
+      "inA": "\"2\": \"c\", \"length\": 3",
+      "inB": "\"2\": \"c\", \"length\": \"3\""
+    },
+    {
+      "category": "TypeCoerced",
+      "inA": "\"__proto__\": { \"polluted\": true }",
+      "inB": "\"__proto__\": { \"polluted\": \"true\" }"
+    },
+    {
+      "category": "Contains (A contains B)",
+      "inA": "\"// not a comment /* still not */ # nope\"",
+      "inB": "\"not a comment\""
+    },
+    {
+      "category": "Contains (B contains A)",
+      "inA": "\"base64\": \"eyJhIjoxfQ==\"",
+      "inB": "\"base64\": \"prefix eyJhIjoxfQ== suffix\""
+    },
+    {
+      "category": "Pattern (B is a regex A satisfies)",
+      "inA": "\"2024-03-01T10:15:00Z\", \"2016",
+      "inB": "\"^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$\", \"2016"
+    },
+    {
+      "category": "Pattern (B is a regex A satisfies)",
+      "inA": "\"https://example.com/schemas/torture.json\"",
+      "inB": "\"^https://example\\\\.com/schemas/\\\\w+\\\\.json$\""
+    },
+    {
+      "category": "Structure: property removed",
+      "inA": "\"delete\": \"\\u007F\",",
+      "inB": ""
+    },
+    {
+      "category": "Structure: null vs missing",
+      "inA": "\"objectOfNulls\": { \"a\": null, \"b\": null }",
+      "inB": "\"objectOfNulls\": { \"a\": null }"
+    },
+    {
+      "category": "Structure: property added",
+      "inA": "\"polymorphism\": [",
+      "inB": "\"addedInB\": { \"note\": \"only in the second file\", \"list\": [1, 2, 3] },\n\n    \"polymorphism\": ["
+    },
+    {
+      "category": "Structure: property renamed",
+      "inA": "\"emptyArray\": []",
+      "inB": "\"empty_array\": []"
+    },
+    {
+      "category": "Structure: property renamed (case only)",
+      "inA": "\"uint64Max\":",
+      "inB": "\"UInt64Max\":"
+    },
+    {
+      "category": "Structure: type changed",
+      "inA": "\"allNulls\": [null, null, null, null]",
+      "inB": "\"allNulls\": null"
+    },
+    {
+      "category": "Structure: type changed",
+      "inA": "\"emptyObject\": {}",
+      "inB": "\"emptyObject\": []"
+    },
+    {
+      "category": "Structure: type changed",
+      "inA": "\"zero\": 0,",
+      "inB": "\"zero\": false,"
+    },
+    {
+      "category": "Structure: scalar wrapped in array",
+      "inA": "\"arrayOrScalar\": [{ \"tag\": \"a\" }",
+      "inB": "\"arrayOrScalar\": [{ \"tag\": [\"a\"] }"
+    },
+    {
+      "category": "Structure: array shorter",
+      "inA": "\"sparseLike\": [1, null, null, null, 5]",
+      "inB": "\"sparseLike\": [1, null, 5]"
+    },
+    {
+      "category": "Structure: array shorter",
+      "inA": "[[], [9]], []]",
+      "inB": "[[], [9]]]"
+    },
+    {
+      "category": "Structure: array longer",
+      "inA": "\"jagged\": [[1], [1, 2], [],",
+      "inB": "\"jagged\": [[1], [1, 2], [], [7, 8, 9],"
+    },
+    {
+      "category": "Structure: nesting shallower (30 -> 25)",
+      "inA": "\"deepObject\":\n      {\"a\":{\"a\":{\"a\":{\"a\":{\"a\":",
+      "inB": "\"deepObject\":"
+    },
+    {
+      "category": "Structure: nesting shallower (30 -> 25)",
+      "inA": "\"30 levels down\"\n      }}}}}",
+      "inB": "\"30 levels down\""
+    },
+    {
+      "category": "Array order: elements reversed",
+      "inA": "[[\"id\", 1], [\"name\", \"x\"], [\"tags\", [\"a\", \"b\"]], [\"meta\", { \"k\": \"v\" }]]",
+      "inB": "[[\"meta\", { \"k\": \"v\" }], [\"tags\", [\"a\", \"b\"]], [\"name\", \"x\"], [\"id\", 1]]"
+    },
+    {
+      "category": "Array order: primitives reordered",
+      "inA": "[\"null\", \"true\", \"false\", \"NaN\"",
+      "inB": "[\"NaN\", \"false\", \"true\", \"null\""
+    },
+    {
+      "category": "Array order: objects swapped",
+      "inA": "{ \"type\": \"rect\", \"w\": 2, \"h\": 3 },\n      { \"type\": \"group\", \"members\": [{ \"type\": \"circle\", \"radius\": 0.5 }, { \"type\": \"group\", \"members\": [] }] },",
+      "inB": "{ \"type\": \"group\", \"members\": [{ \"type\": \"circle\", \"radius\": 0.5 }, { \"type\": \"group\", \"members\": [] }] },\n      { \"type\": \"rect\", \"w\": 2, \"h\": 3 },"
+    },
+    {
+      "category": "No real difference: property order",
+      "inA": "{ \"$id\": \"urn:a\", \"$anchor\": \"here\", \"$dynamicRef\": \"#here\" }",
+      "inB": "{ \"$dynamicRef\": \"#here\", \"$id\": \"urn:a\", \"$anchor\": \"here\" }"
+    },
+    {
+      "category": "No real difference: property order",
+      "inA": "{ \"@vocab\": \"https://schema.org/\", \"@id\": \"urn:uuid:00000000-0000-0000-0000-000000000000\" }",
+      "inB": "{ \"@id\": \"urn:uuid:00000000-0000-0000-0000-000000000000\", \"@vocab\": \"https://schema.org/\" }"
+    },
+    {
+      "category": "No real difference: whitespace only",
+      "inA": "\"noSpaces\":{\"a\":[1,2,{\"b\":null}]}",
+      "inB": "\"noSpaces\" : { \"a\" : [ 1, 2, { \"b\" : null } ] }"
+    },
+    {
+      "category": "No real difference: escape vs literal",
+      "inA": "\"validSurrogatePair\": \"\\uD83D\\uDE00\"",
+      "inB": "\"validSurrogatePair\": \"😀\""
+    },
+    {
+      "category": "Unicode: third item differs only by normalization (NFC vs NFD)",
+      "inA": "[\"\\u00e9\", \"\\u00E9\", \"é\"]",
+      "inB": "[\"é\", \"é\", \"e\\u0301\"]"
+    },
+    {
+      "category": "Duplicate keys: last value changes (3 -> 1)",
+      "inA": "\"simple\": { \"k\": 1, \"k\": 2, \"k\": 3 }",
+      "inB": "\"simple\": { \"k\": 3, \"k\": 2, \"k\": 1 }"
+    },
+    {
+      "category": "Duplicate keys: collapsed, equal if last wins",
+      "inA": "\"interleaved\": { \"a\": 1, \"b\": 2, \"a\": 3, \"b\": 4, \"a\": 5 }",
+      "inB": "\"interleaved\": { \"a\": 5, \"b\": 4 }"
+    }
+  ],
+  "publicApi": {
+    "guideScenario": {
+      "orderId": "ORD-1042",
+      "currency": "USD",
+      "customer": { "name": "  Alice Chen  ", "city": "Seattle", "contact": "Jon Smith" },
+      "items": [{ "sku": "BOOK", "quantity": 1 }, { "sku": "PEN", "quantity": 2 }],
+      "total": 30,
+      "paid": true,
+      "delivery": { "days": 3, "note": "Leave at door" },
+      "legacyCode": null
+    },
+    "basic": { "name": "Ann", "age": 30 },
+    "nested": { "profile": { "city": "Oslo" }, "tags": ["a", "b"], "old": true, "nullable": null },
+    "arrayValues": [1, 2, 3],
+    "arrayObjects": [{ "id": 1, "name": "A" }, { "id": 2, "name": "B" }],
+    "surplus": [1, 2],
+    "duplicates": { "entry": { "value": 1 }, "entry": { "value": 2 } },
+    "shapeValues": [{ "id": 1 }, { "id": 2 }],
+    "emptyObject": {},
+    "emptyArray": [],
+    "fuzzyAssignment": ["Jhon Smiht", "Jon Smith"],
+    "nestedStringified": { "payload": "{\"a\":1}" },
+    "invalidText": "{"
+  }
+}
