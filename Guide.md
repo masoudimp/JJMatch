@@ -25,7 +25,7 @@ foreach (var difference in result.Differences)
 
 `IsMatch` tells you whether everything matches under your rules. `Score` is a percentage from 0 to 100. `Differences` explains what failed. A complete match always means **true, exactly 100, and an empty list**.
 
-The default compares exact values and keeps array order. Object property order and JSON formatting do not matter. The package targets `netstandard2.0` and `net8.0`; the examples use C# raw strings.
+The default compares exact values and counts every array element. Array element order, object property order and JSON formatting do not matter. The package targets `netstandard2.0` and `net8.0`; the examples use C# raw strings.
 
 ## 2. The Example Documents
 
@@ -80,7 +80,7 @@ The differences between the two documents, and the setting that could accept eac
 | --- | --- | --- |
 | `customer.name` | `"  Alice Chen  "` → `"alice chen"` | Normalized string comparison |
 | `customer.contact` | `"Jon Smith"` → `"John Smith"` | Fuzzy string comparison |
-| `items` | BOOK, PEN → PEN, BOOK | Unordered arrays |
+| `items` | BOOK, PEN → PEN, BOOK | Nothing needed: array order never matters |
 | `total` | `30` → `30.0` | Numeric comparison |
 | `paid` | `true` → `false` | A real value change |
 | `delivery.days` | `3` → `5` | A real value change |
@@ -95,48 +95,45 @@ Settings are passed as `JJMatchSettings`. `ArrayMode` controls how arrays are pa
 Show("A", JJMatcher.Match(leftJson, rightJson));
 
 Show("B", JJMatcher.Match(leftJson, rightJson,
-    settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.Unordered }));
+    settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.StructureOnly }));
 
-Show("G", JJMatcher.Match(leftJson, rightJson,
+Show("F", JJMatcher.Match(leftJson, rightJson,
     settings: new JJMatchSettings
     {
-        ArrayMode = JJArrayMatchingMode.Unordered,
         ValueMode = JJValueMatchingMode.Numeric
             | JJValueMatchingMode.Normalized
     }));
 
-Show("H", JJMatcher.Match(leftJson, rightJson, JJMatchOptions.StructuralMatching));
+Show("G", JJMatcher.Match(leftJson, rightJson, JJMatchOptions.StructuralMatching));
 ```
 
 Results on the example pair. Scores use invariant `"R"` formatting, the full round-trip representation of the returned `double`.
 
 | ID | Configuration | IsMatch | Score (%) | Differences |
 | --- | --- | --- | ---: | --- |
-| A | Default: Strict, identical values | `false` | `50` | **11**: 9 ValueMismatch, 1 Missing, 1 Added |
-| B | Unordered | `false` | `70` | **7**: 5 ValueMismatch, 1 Missing, 1 Added |
-| C | StructureOnly | `false` | `64.70588235294117` | **7**: 5 ValueMismatch, 1 Missing, 1 Added |
-| D | Strict + Numeric | `false` | `55` | **10**: 8 ValueMismatch, 1 Missing, 1 Added |
-| E | Strict + Normalized | `false` | `55` | **10**: 8 ValueMismatch, 1 Missing, 1 Added |
-| F | Strict + Fuzzy | `false` | `60` | **9**: 7 ValueMismatch, 1 Missing, 1 Added |
-| G | Unordered + Numeric \| Normalized | `false` | `80` | **5**: 3 ValueMismatch, 1 Missing, 1 Added |
-| H | StructuralMatching, Strict arrays | `false` | `95` | **2**: 1 Missing, 1 Added |
-| I | G plus Fuzzy | `false` | `85` | **4**: 2 ValueMismatch, 1 Missing, 1 Added |
+| A | Default: Strict, identical values | `false` | `70` | **7**: 5 ValueMismatch, 1 Missing, 1 Added |
+| B | StructureOnly | `false` | `64.70588235294117` | **7**: 5 ValueMismatch, 1 Missing, 1 Added |
+| C | Strict + Numeric | `false` | `75` | **6**: 4 ValueMismatch, 1 Missing, 1 Added |
+| D | Strict + Normalized | `false` | `75` | **6**: 4 ValueMismatch, 1 Missing, 1 Added |
+| E | Strict + Fuzzy | `false` | `80` | **5**: 3 ValueMismatch, 1 Missing, 1 Added |
+| F | Strict + Numeric \| Normalized | `false` | `80` | **5**: 3 ValueMismatch, 1 Missing, 1 Added |
+| G | StructuralMatching, Strict arrays | `false` | `95` | **2**: 1 Missing, 1 Added |
+| H | F plus Fuzzy | `false` | `85` | **4**: 2 ValueMismatch, 1 Missing, 1 Added |
 
 Every row keeps the missing `legacyCode` and the added `coupon`, so no setting produces a full match. What each row shows:
 
-- **A, Strict arrays.** BOOK is paired with PEN at position 0 and PEN with BOOK at position 1, which creates four item differences on top of the value changes.
-- **B, Unordered arrays.** Each item finds its exact partner. Counts still matter: every occurrence can match only once, and JJMatch compares whole items rather than treating `sku` or `id` as a key.
-- **C, StructureOnly arrays.** Both item objects have the same shape, so each array contributes one shape and the values below arrays are ignored. The score differs from B because fewer nodes are counted (section 4).
-- **D, Numeric.** `30` and `30.0` now match. Numeric relaxes numbers only. Identical values **always** match, whatever is selected: a rule only accepts further pairs, so the identical strings here still match.
-- **E, Normalized.** Strings match after trimming outer white space, Unicode NFC normalization and ignoring case. Internal spaces, punctuation and accents are kept. Strings only.
-- **F, Fuzzy.** Small typos are accepted: two strings match when their similarity, one minus the edits per character of the longer folded text, is at least `FuzzyThreshold`, where an edit is an insertion, deletion, replacement or adjacent swap. The default threshold is 0.8, one edit for every five characters: `"Jon"` vs `"John"` allows 0 edits and fails; `"Jon Smith"` vs `"John Smith"` allows 2 and matches. Set `FuzzyThreshold = 0.75` and `"Jon"` matches `"John"` too; set it to 1 and only Normalized-equal strings match. Fuzzy can accept changed digits inside strings, so leave it off for identifiers. Strings only.
-- **G and I, combined rules.** A value matches when **any** selected rule accepts it. This is a practical starting point for mixed JSON where order, numeric spelling, case and outer white space should not matter.
-- **H, StructuralMatching.** Names, types and container structure are compared, primitive values are ignored. Unlike the StructureOnly array mode in C, this applies to the whole document.
+- **A, Strict arrays.** Array elements pair wherever they stand, so BOOK and PEN each find their exact partner although the two documents list them in a different order. Counts still matter: every occurrence can match only once, and JJMatch compares whole items rather than treating `sku` or `id` as a key.
+- **B, StructureOnly arrays.** Both item objects have the same shape, so each array contributes one shape and the values below arrays are ignored. The score differs from A because fewer nodes are counted (section 4).
+- **C, Numeric.** `30` and `30.0` now match. Numeric relaxes numbers only. Identical values **always** match, whatever is selected: a rule only accepts further pairs, so the identical strings here still match.
+- **D, Normalized.** Strings match after trimming outer white space, Unicode NFC normalization and ignoring case. Internal spaces, punctuation and accents are kept. Strings only.
+- **E, Fuzzy.** Small typos are accepted: two strings match when their similarity, one minus the edits per character of the longer folded text, is at least `FuzzyThreshold`, where an edit is an insertion, deletion, replacement or adjacent swap. The default threshold is 0.8, one edit for every five characters: `"Jon"` vs `"John"` allows 0 edits and fails; `"Jon Smith"` vs `"John Smith"` allows 2 and matches. Set `FuzzyThreshold = 0.75` and `"Jon"` matches `"John"` too; set it to 1 and only Normalized-equal strings match. Fuzzy can accept changed digits inside strings, so leave it off for identifiers. Strings only.
+- **F and H, combined rules.** A value matches when **any** selected rule accepts it. This is a practical starting point for mixed JSON where numeric spelling, case and outer white space should not matter.
+- **G, StructuralMatching.** Names, types and container structure are compared, primitive values are ignored. Unlike the StructureOnly array mode in B, this applies to the whole document.
 
-Value rules never touch property names. `PropertyNameMode = JJPropertyNameMatchingMode.Normalized` pairs names with the same trimming, NFC and case-insensitive rule as Normalized values, so `name` pairs with `Name` while `postalCode` still does not pair with `postal_code`. It applies under every option, including `StructuralMatching`, and names of one object that become equal under it are treated as duplicate property names.
+Value rules never touch property names. Identical names always pair, and the default `JJPropertyNameMatchingMode.None` pairs nothing else. `PropertyNameMode = JJPropertyNameMatchingMode.Normalized` pairs names with the same trimming, NFC and case-insensitive rule as Normalized values, so `name` pairs with `Name` while `postalCode` still does not pair with `postal_code`. It applies under every option, including `StructuralMatching`, and names of one object that become equal under it are treated as duplicate property names.
 
 ```csharp
-Show("Names, exact", JJMatcher.Match("""{"name":"Ali"}""", """{"Name":"Ali"}"""));
+Show("Names, default", JJMatcher.Match("""{"name":"Ali"}""", """{"Name":"Ali"}"""));
 // false / 50 / Missing $.name, Added $.Name
 Show("Names, normalized", JJMatcher.Match("""{"name":"Ali"}""", """{"Name":"Ali"}""",
     settings: new JJMatchSettings { PropertyNameMode = JJPropertyNameMatchingMode.Normalized }));
@@ -168,12 +165,11 @@ The same differences, weighed differently, on the example pair. The unmatched ma
 
 | ID | Configuration | IsMatch | Score (%) | Differences | Unmatched mass against matched mass |
 | --- | --- | --- | ---: | --- | --- |
-| A | Strict, Standard | `false` | `50` | 9 ValueMismatch, 1 Missing, 1 Added | 20 nodes of 40, unweighted |
-| W | A, Weighted with the default weights | `false` | `62.69592476489028` | the same 11 | `9 × 2 × 6 + 1 × 8 + 1 × 3 = 119` against `10 × 20 = 200` |
-| X | A, Weighted: Missing 10, Added 10, ValueMismatch 1 | `false` | `84.03361344537815` | the same 11 | `18 + 10 + 10 = 38` against `200` |
-| Y | A, Weighted: Missing 1, Added 1, ValueMismatch 10 | `false` | `52.35602094240838` | the same 11 | `180 + 1 + 1 = 182` against `200` |
-| B+W | Unordered, Weighted defaults | `false` | `79.77207977207978` | 5 ValueMismatch, 1 Missing, 1 Added | `60 + 8 + 3 = 71` against `280` |
-| H+W | StructuralMatching, Weighted defaults | `false` | `97.18670076726343` | 1 Missing, 1 Added | `8 + 3 = 11` against `380` |
+| A | Strict, Standard | `false` | `70` | 5 ValueMismatch, 1 Missing, 1 Added | 12 nodes of 40, unweighted |
+| W | A, Weighted with the default weights | `false` | `79.77207977207978` | the same 7 | `5 × 2 × 6 + 1 × 8 + 1 × 3 = 71` against `14 × 20 = 280` |
+| X | A, Weighted: Missing 10, Added 10, ValueMismatch 1 | `false` | `90.3225806451613` | the same 7 | `10 + 10 + 10 = 30` against `280` |
+| Y | A, Weighted: Missing 1, Added 1, ValueMismatch 10 | `false` | `73.29842931937172` | the same 7 | `100 + 1 + 1 = 102` against `280` |
+| G+W | StructuralMatching, Weighted defaults | `false` | `97.18670076726343` | 1 Missing, 1 Added | `8 + 3 = 11` against `380` |
 
 What to expect from the weights:
 
@@ -189,9 +185,9 @@ Settings can also be kept in a JSON file and loaded with `JJMatchSettings.FromJs
 
 ```json
 {
-  "ArrayMode": "Unordered",
+  "ArrayMode": "Strict",
   "ValueMode": "Numeric",
-  "PropertyNameMode": "Exact",
+  "PropertyNameMode": "None",
   "FuzzyThreshold": 0.8,
   "MaxDepth": 128,
   "Scoring": { "Mode": "Weighted", "MissingWeight": 8, "AddedWeight": 3, "TypeMismatchWeight": 10, "ValueMismatchWeight": 6 }
@@ -215,21 +211,20 @@ Score = 200 × matched nodes / (left nodes + right nodes)
 
 A node is a JSON value. Objects and arrays count, including the root. A property name labels its value and does not earn a point of its own. A container of matching type earns one point even when its children differ. Each accepted primitive earns one point. Missing and rejected values earn none.
 
-The example documents have 20 nodes each: the root, `orderId`, `currency`, `customer` (object + 3 values), `items` (array + 2 × (object + 2 values)), `total`, `paid`, `delivery` (object + 2 values), and `legacyCode` or `coupon`. Under C the two identical item shapes collapse to one, so each side has 17.
+The example documents have 20 nodes each: the root, `orderId`, `currency`, `customer` (object + 3 values), `items` (array + 2 × (object + 2 values)), `total`, `paid`, `delivery` (object + 2 values), and `legacyCode` or `coupon`. Under B the two identical item shapes collapse to one, so each side has 17.
 
 | ID | Matched | Left + Right | Calculation | Which nodes match |
 | --- | ---: | ---: | --- | --- |
-| A | 10 | 40 | `200 × 10 / 40 = 50` | 6 containers + orderId, currency, city, note |
-| B | 14 | 40 | `200 × 14 / 40 = 70` | A + the 4 correctly paired item values |
-| C | 11 | 34 | `200 × 11 / 34 = 1100/17` | 5 effective containers + 4 exact values outside arrays + 2 ignored item values |
-| D | 11 | 40 | `200 × 11 / 40 = 55` | A + total |
-| E | 11 | 40 | `200 × 11 / 40 = 55` | A + customer.name |
-| F | 12 | 40 | `200 × 12 / 40 = 60` | A + customer.name and customer.contact |
-| G | 16 | 40 | `200 × 16 / 40 = 80` | B + customer.name and total |
-| H | 19 | 40 | `200 × 19 / 40 = 95` | Everything except the unpaired property on each side |
-| I | 17 | 40 | `200 × 17 / 40 = 85` | G + customer.contact |
+| A | 14 | 40 | `200 × 14 / 40 = 70` | 6 containers + orderId, currency, city, note + the 4 item values |
+| B | 11 | 34 | `200 × 11 / 34 = 1100/17` | 5 effective containers + 4 exact values outside arrays + 2 ignored item values |
+| C | 15 | 40 | `200 × 15 / 40 = 75` | A + total |
+| D | 15 | 40 | `200 × 15 / 40 = 75` | A + customer.name |
+| E | 16 | 40 | `200 × 16 / 40 = 80` | A + customer.name and customer.contact |
+| F | 16 | 40 | `200 × 16 / 40 = 80` | A + customer.name and total |
+| G | 19 | 40 | `200 × 19 / 40 = 95` | Everything except the unpaired property on each side |
+| H | 17 | 40 | `200 × 17 / 40 = 85` | F + customer.contact |
 
-B and C report the same differences but different scores: counting differences cannot reproduce a score, because a missing subtree is one diagnostic but may contain many nodes, and shape mode changes what is counted.
+A and B report the same differences but different scores: counting differences cannot reproduce a score, because a missing subtree is one diagnostic but may contain many nodes, and shape mode changes what is counted.
 
 Under `JJScoringMode.Weighted` (section 3) the same matched and unmatched nodes are weighed instead of counted: each matched node weighs 10 on each side, and each unmatched node weighs the 1-to-10 weight of the kind of difference it belongs to.
 
@@ -237,7 +232,7 @@ Under `JJScoringMode.Weighted` (section 3) the same matched and unmatched nodes 
 Weighted score = 100 × 20 × matched nodes / (20 × matched nodes + Σ weight × unmatched nodes of each difference)
 ```
 
-Row W above is `100 × 200 / (200 + 119)`. With every weight at 10 this is the Standard formula again.
+Row W above is `100 × 280 / (280 + 71)`. With every weight at 10 this is the Standard formula again.
 
 Use `IsMatch` to decide success, not a rounded score. Format `Score` with `F2` and append `%`; .NET's `P` format would multiply it by 100 again. Swapping Left and Right preserves `Score` and `IsMatch`. The score measures accepted content and structure, not probability or factual accuracy. See the [scoring reference](https://github.com/masoudimp/JJMatch/blob/main/Docs/Scoring.md) for alignment constraints and limitations.
 
@@ -247,7 +242,6 @@ Use `IsMatch` to decide success, not a rounded score. Format `Score` with `F2` a
 var combined = JJMatcher.Match(leftJson, rightJson,
     settings: new JJMatchSettings
     {
-        ArrayMode = JJArrayMatchingMode.Unordered,
         ValueMode = JJValueMatchingMode.Numeric
             | JJValueMatchingMode.Normalized
     });
@@ -277,13 +271,13 @@ foreach (var difference in combined.Differences)
 | `Missing` | Exists on the left, absent on the right. |
 | `Added` | Exists only on the right. |
 
-`$` is the comparison root, indices start at zero (`$.items[0].sku`), names with punctuation are escaped (`$['first.name']`), and duplicate property names get one-based occurrence suffixes (`$.entry#2`). `Path` is the left location when present, otherwise the right one; `LeftPath` and `RightPath` keep the original positions on each side and can differ under unordered pairing. A missing subtree or a type mismatch produces one difference at the subtree's root. Snapshots contain the whole affected subtree and stay usable after `Match` returns. A nullable missing snapshot is different from present JSON null: `legacyCode` has `LeftValue.Value.ValueKind == JsonValueKind.Null` and a null `RightValue`.
+`$` is the comparison root, indices start at zero (`$.items[0].sku`), names with punctuation are escaped (`$['first.name']`), and duplicate property names get one-based occurrence suffixes (`$.entry#2`). `Path` is the left location when present, otherwise the right one; `LeftPath` and `RightPath` keep the original positions on each side and can differ, because array elements pair wherever they stand. A missing subtree or a type mismatch produces one difference at the subtree's root. Snapshots contain the whole affected subtree and stay usable after `Match` returns. A nullable missing snapshot is different from present JSON null: `legacyCode` has `LeftValue.Value.ValueKind == JsonValueKind.Null` and a null `RightValue`.
 
 ## 6. Input, Limits and Errors
 
 **Input.** Pass JSON text, not a file path or an object's `ToString()`. Any valid JSON root is accepted. A root string whose content is a JSON object or array is decoded one layer automatically, so a stringified document compares equal to its plain form; strings nested inside a document stay literal. C# `null` throws `ArgumentNullException`; empty text, comments, trailing commas and malformed JSON throw `JsonException`.
 
-**Limits.** Defaults allow 1,000,000 UTF-16 characters per input, depth 64, 100,000 total nodes, 128 occurrences per side in an unordered or duplicate-property group, and a comparison work budget of 10,000,000. Settings can raise them: depth without an upper bound, total nodes up to 1,000,000 and assignment groups up to 256. The comparison recurses once per nesting level, so a document deep enough for a very large depth can overflow the stack, which cannot be caught. Exceeding a limit throws `InvalidOperationException` (or `JsonException` for depth); a limit failure never returns an approximate score.
+**Limits.** Defaults allow 1,000,000 UTF-16 characters per input, depth 64, 100,000 total nodes, 128 elements per array and 128 occurrences per duplicate-property group, and a comparison work budget of 10,000,000. Settings can raise them: depth without an upper bound, total nodes up to 1,000,000 and arrays and duplicate-property groups up to 256 (`MaxAssignmentSize`), so a Strict array of more than 256 elements cannot be compared. The comparison recurses once per nesting level, so a document deep enough for a very large depth can overflow the stack, which cannot be caught. Exceeding a limit throws `InvalidOperationException` (or `JsonException` for depth); a limit failure never returns an approximate score.
 
 ```csharp
 try

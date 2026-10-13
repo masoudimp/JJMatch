@@ -64,7 +64,7 @@ public class NumericExponentBenchmarks
 }
 
 // Equivalent functionality only: exact numeric quantity equality on pre-parsed scalar numbers. This says nothing
-// about document matching, differences, parsing throughput, or the proposed Strict/Unordered public modes.
+// about document matching, differences, parsing throughput, or the public array modes.
 [MemoryDiagnoser]
 public class NumericComparisonBenchmarks
 {

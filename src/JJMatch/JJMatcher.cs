@@ -11,7 +11,7 @@ public static class JJMatcher
     /// <param name="json1">The left JSON document. Any valid JSON root is accepted.</param>
     /// <param name="json2">The right JSON document.</param>
     /// <param name="options">Use StructuralMatching to ignore primitive values; null or All compares structure and values.</param>
-    /// <param name="settings">Optional array, value and property name rules, scoring configuration and resource limits. Defaults to Strict arrays, identical values, Exact names and Standard scoring.</param>
+    /// <param name="settings">Optional array, value and property name rules, scoring configuration and resource limits. Defaults to Strict arrays, identical values, identical names and Standard scoring.</param>
     /// <param name="cancellationToken">Cancels comparison cooperatively.</param>
     /// <exception cref="ArgumentNullException">An input is null.</exception>
     /// <exception cref="ArgumentException">Options or settings are invalid.</exception>

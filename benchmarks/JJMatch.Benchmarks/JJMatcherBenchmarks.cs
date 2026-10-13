@@ -26,12 +26,10 @@ public class JJMatcherBenchmarks
     private string _wideOther = "";
 
     private static readonly JJMatchSettings Strict = new();
-    private static readonly JJMatchSettings Unordered = new() { ArrayMode = JJArrayMatchingMode.Unordered };
     private static readonly JJMatchSettings StructureOnly = new() { ArrayMode = JJArrayMatchingMode.StructureOnly };
     // The 200 names exceed the default group size of 128, and their 40,000 fuzzy candidates the default work budget.
     private static readonly JJMatchSettings Fuzzy = new()
     {
-        ArrayMode = JJArrayMatchingMode.Unordered,
         ValueMode = JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric,
         MaxAssignmentSize = 256,
         MaxWork = 1_000_000_000,
@@ -153,16 +151,14 @@ public class JJMatcherBenchmarks
         "[{" + string.Join(",", Enumerable.Range(0, count).Select(index => $"\"key{index}\":{value(index)}")) + "}]";
 
     [Benchmark] public object CoreStrict() => JJMatcher.Match(_leftCore, _rightCore, null, Strict);
-    [Benchmark] public object CoreUnordered() => JJMatcher.Match(_leftCore, _rightCore, null, Unordered);
     [Benchmark] public object CoreStructureOnly() => JJMatcher.Match(_leftCore, _rightCore, null, StructureOnly);
     [Benchmark] public object NestedStrict() => JJMatcher.Match(_nested, _nestedReordered, null, Strict);
-    [Benchmark] public object NestedUnordered() => JJMatcher.Match(_nested, _nestedReordered, null, Unordered);
     [Benchmark] public object NestedStructureOnly() => JJMatcher.Match(_nested, _nestedReordered, null, StructureOnly);
     [Benchmark] public object NestedSelfStrict() => JJMatcher.Match(_nested, _nested, null, Strict);
-    [Benchmark] public object PermutedElementsUnordered() => JJMatcher.Match(_elements, _elementsPermuted, null, Unordered);
-    [Benchmark] public object DistinctShapesUnordered() => JJMatcher.Match(_shapes, _shapesOther, null, Unordered);
+    [Benchmark] public object PermutedElementsStrict() => JJMatcher.Match(_elements, _elementsPermuted, null, Strict);
+    [Benchmark] public object DistinctShapesStrict() => JJMatcher.Match(_shapes, _shapesOther, null, Strict);
     [Benchmark] public object DistinctShapesStructureOnly() => JJMatcher.Match(_shapes, _shapesOther, null, StructureOnly);
     [Benchmark] public object DuplicateNamesStrict() => JJMatcher.Match(_duplicates, _duplicatesOther, null, Strict);
-    [Benchmark] public object FuzzyNamesUnordered() => JJMatcher.Match(_names, _namesOther, null, Fuzzy);
+    [Benchmark] public object FuzzyNamesStrict() => JJMatcher.Match(_names, _namesOther, null, Fuzzy);
     [Benchmark] public object WideObjectStrict() => JJMatcher.Match(_wide, _wideOther, null, Strict);
 }
