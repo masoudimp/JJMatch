@@ -5,7 +5,29 @@
 <PageTitle>JJMatch Playground</PageTitle>
 
 <h1>JJMatch Playground</h1>
-<p>Paste two JSON documents and compare them with <code>JJMatcher.Match</code> using its default rules.</p>
+<p>Paste two JSON documents, choose the rules, and compare them with <code>JJMatcher.Match</code>.</p>
+
+<fieldset class="settings">
+    <legend>Arrays</legend>
+    <label><input type="radio" name="arrays" checked="@(arrayMode == JJArrayMatchingMode.Strict)" @onchange="() => arrayMode = JJArrayMatchingMode.Strict" /> Strict (order and count)</label>
+    <label><input type="radio" name="arrays" checked="@(arrayMode == JJArrayMatchingMode.Unordered)" @onchange="() => arrayMode = JJArrayMatchingMode.Unordered" /> Unordered (count only)</label>
+    <label><input type="radio" name="arrays" checked="@(arrayMode == JJArrayMatchingMode.StructureOnly)" @onchange="() => arrayMode = JJArrayMatchingMode.StructureOnly" /> StructureOnly (shapes only)</label>
+</fieldset>
+
+<fieldset class="settings">
+    <legend>Values (combined with OR)</legend>
+    <label><input type="checkbox" @bind="exact" /> Exact</label>
+    <label><input type="checkbox" @bind="normalized" /> Normalized</label>
+    <label><input type="checkbox" @bind="fuzzy" /> Fuzzy</label>
+    <label><input type="checkbox" @bind="numeric" /> Numeric</label>
+</fieldset>
+
+<fieldset class="settings">
+    <legend>Compare (neither selected means both)</legend>
+    <label><input type="checkbox" @bind="structuralMatching" /> StructuralMatching</label>
+    <label><input type="checkbox" @bind="valueMatching" /> ValueMatching</label>
+    <label><input type="checkbox" @bind="parseStringifiedJson" /> ParseStringifiedJson</label>
+</fieldset>
 
 <div class="inputs">
     <label>
@@ -70,13 +92,34 @@ else if (result is not null)
     private JJMatchResult? result;
     private string? error;
 
+    private JJArrayMatchingMode arrayMode = JJArrayMatchingMode.Strict;
+    private bool exact = true, normalized, fuzzy, numeric;
+    private bool structuralMatching = true, valueMatching = true, parseStringifiedJson;
+
     private void Compare()
     {
         result = null;
         error = null;
         try
         {
-            result = JJMatcher.Match(left, right);
+            var valueMode = JJValueMatchingMode.None;
+            if (exact) valueMode |= JJValueMatchingMode.Exact;
+            if (normalized) valueMode |= JJValueMatchingMode.Normalized;
+            if (fuzzy) valueMode |= JJValueMatchingMode.Fuzzy;
+            if (numeric) valueMode |= JJValueMatchingMode.Numeric;
+
+            // All is zero in the library, so selecting neither option is the same as selecting both.
+            var options = JJMatchOptions.All;
+            if (structuralMatching) options |= JJMatchOptions.StructuralMatching;
+            if (valueMatching) options |= JJMatchOptions.ValueMatching;
+
+            var settings = new JJMatchSettings
+            {
+                ArrayMode = arrayMode,
+                ValueMode = valueMode,
+                ParseStringifiedJson = parseStringifiedJson
+            };
+            result = JJMatcher.Match(left, right, options, settings);
         }
         catch (Exception exception)
         {

@@ -10,6 +10,26 @@ body {
     color: #666;
 }
 
+.settings {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin: 0 0.75rem 0.75rem 0;
+    padding: 0.5rem 0.75rem;
+    vertical-align: top;
+}
+
+.settings legend {
+    font-weight: 600;
+    padding: 0 0.25rem;
+}
+
+.settings label {
+    white-space: nowrap;
+}
+
 .inputs {
     display: grid;
     gap: 1rem;
