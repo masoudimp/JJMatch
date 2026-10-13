@@ -20,7 +20,7 @@ internal static class StructureMatcher
     // with the same one. The fuzzy threshold is handed to every value comparison; omitted, it is the library default.
     internal static StructureMatchResult Match(JsonStructureNode left, JsonStructureNode right,
         JJArrayMatchingMode arrayMode, JJValueMatchingMode valueMode, bool compareValues, ComparisonBudget? budget,
-        ComparisonCache? cache = null, JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.Exact,
+        ComparisonCache? cache = null, JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.None,
         double fuzzyThreshold = ValueMatcher.DefaultFuzzyThreshold)
     {
         var rules = new Rules(arrayMode, valueMode, compareValues, budget, cache ?? new ComparisonCache(arrayMode, budget, nameMode), fuzzyThreshold);
@@ -48,7 +48,7 @@ internal static class StructureMatcher
         internal double FuzzyThreshold { get; }
     }
 
-    // The key under which a property name is paired: the name itself under Exact, and under Normalized the name
+    // The key under which a property name is paired: the name itself under None, and under Normalized the name
     // trimmed and in NFC, to be compared ignoring case, exactly as Normalized compares string values.
     internal static string NameKey(string name, JJPropertyNameMatchingMode mode) =>
         mode == JJPropertyNameMatchingMode.Normalized ? ValueMatcher.Normalize(name) : name;
@@ -250,9 +250,10 @@ internal static class StructureMatcher
         }
     }
 
-    // Each side is reduced to its distinct element shapes, which are paired as a group: see Assign. Only those
-    // CanPair allows are paired. A pair of different shapes always yields at least one difference; a shape without
-    // a partner is reported whole.
+    // Elements are paired as a group, wherever they stand in their arrays: see Assign. Strict pairs every element,
+    // and any two may be paired. StructureOnly first reduces each side to its distinct element shapes and pairs
+    // only those CanPair allows; a pair of different shapes always yields at least one difference. An element or
+    // shape without a partner is reported whole.
     private static int CompareElements(
         JsonStructureNode left,
         JsonStructureNode right,
@@ -261,23 +262,6 @@ internal static class StructureMatcher
         Rules rules)
     {
         path.Add(null);
-        if (rules.Arrays == JJArrayMatchingMode.Strict)
-        {
-            var count = 0;
-            for (var index = 0; index < Math.Max(left.Children.Count, right.Children.Count); index++)
-            {
-                rules.Budget?.Spend();
-                if (index >= right.Children.Count)
-                    differences?.Add(new StructureDifference(StructureMismatchType.MissingArrayElementShape, FormatPath(path), left.Children[index], null));
-                else if (index >= left.Children.Count)
-                    differences?.Add(new StructureDifference(StructureMismatchType.ExtraArrayElementShape, FormatPath(path), null, right.Children[index]));
-                else
-                    count += Compare(left.Children[index], right.Children[index], path, differences, rules);
-            }
-            path.RemoveAt(path.Count - 1);
-            return count;
-        }
-
         var shapesOnly = rules.Arrays == JJArrayMatchingMode.StructureOnly;
         // Shape equivalence ignores all values below this array, so collapsing repeated shapes stays well-defined.
         if (shapesOnly && rules.CompareValues)

@@ -3,6 +3,10 @@ namespace JJMatch;
 /// <summary>Selects when two property names label the same property.</summary>
 /// <remarks>
 /// <para>
+/// Identical names always pair. That rule is not a mode and cannot be turned off: <see cref="None"/>, the default,
+/// accepts identical names only, and <see cref="Normalized"/> accepts further pairs on top of it.
+/// </para>
+/// <para>
 /// Names are structural: the rule decides which properties are paired, in every comparison and under every
 /// <see cref="JJMatchOptions"/>, and so affects the structural score as well as the value-aware one. A pair of
 /// names the rule accepts is a match like any other; no difference is reported for the spelling.
@@ -14,8 +18,8 @@ namespace JJMatch;
 /// </remarks>
 public enum JJPropertyNameMatchingMode
 {
-    /// <summary>Names must be identical, character by character, so <c>name</c> and <c>Name</c> are two properties. The default.</summary>
-    Exact = 0,
+    /// <summary>No relaxation: only identical names pair, character by character, so <c>name</c> and <c>Name</c> are two properties. The default.</summary>
+    None = 0,
 
     /// <summary>
     /// Compares names ignoring case and leading and trailing white space, with precomposed and decomposed Unicode

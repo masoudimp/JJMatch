@@ -32,6 +32,6 @@ internal sealed class ComparisonBudget
     {
         Spend((long)left * right);
         if (Math.Max(left, right) > _settings.MaxAssignmentSize)
-            throw new InvalidOperationException("Comparison exceeded JJMatchSettings.MaxAssignmentSize. Use Strict arrays or increase the limit.");
+            throw new InvalidOperationException("Comparison exceeded JJMatchSettings.MaxAssignmentSize. Increase the limit.");
     }
 }
