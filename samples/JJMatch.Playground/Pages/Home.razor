@@ -294,13 +294,35 @@ else if (result is not null)
         NormalizedTip = ("When active, strings match ignoring case, outer white space and Unicode form.", Object("\"city\": \"New York\""), Object("\"city\": \" new york \""), "Accepted"),
         FuzzyTip = ("When active, strings match when they are similar enough, tolerating typos.", Object("\"name\": \"John Smith\""), Object("\"name\": \"Jon Smith\""), "Accepted"),
         NumericTip = ("When active, numbers match as quantities, however they are written.", Object("\"age\": 30"), Object("\"age\": 30.0"), "Accepted"),
-        FuzzyThresholdTip = ("The least similarity Fuzzy accepts: 0.8 allows one edit for every five characters. At 0.8:", Object("\"name\": \"John\""), Object("\"name\": \"Jon\""), "Rejected"),
         StandardTip = ("When active, every difference lowers the score fully, whatever its kind.", Object("\"age\": 30,\n  \"name\": \"Ann\""), Object("\"age\": 30"), ""),
         WeightedTip = ("When active, each kind of difference lowers the score by its weight.", Object("\"age\": 30,\n  \"name\": \"Ann\""), Object("\"age\": 30"), ""),
         MissingWeightTip = ("How much content missing from the response lowers the Weighted score. At 8:", Object("\"age\": 30,\n  \"name\": \"Ann\""), Object("\"age\": 30"), ""),
         AddedWeightTip = ("How much content only the response has lowers the Weighted score. At 3:", Object("\"age\": 30"), Object("\"age\": 30,\n  \"name\": \"Ann\""), ""),
         TypeMismatchWeightTip = ("How much a value of another JSON type lowers the Weighted score. At 10:", Object("\"age\": 30"), Object("\"age\": \"30\""), ""),
         ValueMismatchWeightTip = ("How much a different value of the same type lowers the Weighted score. At 6:", Object("\"age\": 30"), Object("\"age\": 31"), "");
+
+    // "John" vs "Jon" is a fixed one-edit example (deleting the "h"), so only the allowed-edits
+    // side of the comparison moves as fuzzyThreshold changes, matching ValueMatcher's own
+    // length - Ceiling(threshold * length) rule (see src/JJMatch/Internal/Matching/ValueMatcher.cs).
+    private (string Text, string Left, string Right, string Verdict) FuzzyThresholdTip
+    {
+        get
+        {
+            const int length = 4; // "John".Length, the longer of the two example strings
+            const int distance = 1; // edits from "John" to "Jon"
+            var thresholdText = fuzzyThreshold.ToString("0.##", CultureInfo.InvariantCulture);
+            var allowedEdits = length - (int)Math.Ceiling(fuzzyThreshold * length);
+            var accepted = distance <= allowedEdits;
+            var charsPerEdit = fuzzyThreshold >= 1
+                ? "any"
+                : (1 / (1 - fuzzyThreshold)).ToString("0.#", CultureInfo.InvariantCulture);
+            return (
+                $"The least similarity Fuzzy accepts: {thresholdText} allows one edit for every {charsPerEdit} characters. At {thresholdText}:",
+                Object("\"name\": \"John\""),
+                Object("\"name\": \"Jon\""),
+                accepted ? "Accepted" : "Rejected");
+        }
+    }
 
     private static string Object(string properties) => "{\n  " + properties + "\n}";
 
