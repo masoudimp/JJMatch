@@ -301,26 +301,25 @@ else if (result is not null)
         TypeMismatchWeightTip = ("How much a value of another JSON type lowers the Weighted score. At 10:", Object("\"age\": 30"), Object("\"age\": \"30\""), ""),
         ValueMismatchWeightTip = ("How much a different value of the same type lowers the Weighted score. At 6:", Object("\"age\": 30"), Object("\"age\": 31"), "");
 
-    // "John" vs "Jon" is a fixed one-edit example (deleting the "h"), so only the allowed-edits
-    // side of the comparison moves as fuzzyThreshold changes, matching ValueMatcher's own
-    // length - Ceiling(threshold * length) rule (see src/JJMatch/Internal/Matching/ValueMatcher.cs).
-    private (string Text, string Left, string Right, string Verdict) FuzzyThresholdTip
+    // "John" vs "Jon" (one edit) and "John" vs "Mary" (four edits) are fixed examples, so only
+    // the allowed-edits side of each comparison moves as fuzzyThreshold changes, matching
+    // ValueMatcher's own length - Ceiling(threshold * length) rule (see src/JJMatch/Internal/Matching/ValueMatcher.cs).
+    private (string Text, (string Left, string Right, string Verdict) Close, (string Left, string Right, string Verdict) Far) FuzzyThresholdTip
     {
         get
         {
-            const int length = 4; // "John".Length, the longer of the two example strings
-            const int distance = 1; // edits from "John" to "Jon"
+            const int length = 4; // "John".Length, the longer of the example strings
+            const int closeDistance = 1; // edits from "John" to "Jon"
+            const int farDistance = 4; // edits from "John" to "Mary"
             var thresholdText = fuzzyThreshold.ToString("0.##", CultureInfo.InvariantCulture);
             var allowedEdits = length - (int)Math.Ceiling(fuzzyThreshold * length);
-            var accepted = distance <= allowedEdits;
             var charsPerEdit = fuzzyThreshold >= 1
                 ? "any"
                 : (1 / (1 - fuzzyThreshold)).ToString("0.#", CultureInfo.InvariantCulture);
             return (
                 $"The least similarity Fuzzy accepts: {thresholdText} allows one edit for every {charsPerEdit} characters. At {thresholdText}:",
-                Object("\"name\": \"John\""),
-                Object("\"name\": \"Jon\""),
-                accepted ? "Accepted" : "Rejected");
+                (Object("\"name\": \"John\""), Object("\"name\": \"Jon\""), closeDistance <= allowedEdits ? "Accepted" : "Rejected"),
+                (Object("\"name\": \"John\""), Object("\"name\": \"Mary\""), farDistance <= allowedEdits ? "Accepted" : "Rejected"));
         }
     }
 
@@ -336,6 +335,19 @@ else if (result is not null)
             {
                 <span class="badge align-self-start @(tip.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.Verdict</span>
             }
+        </span>
+    </span>;
+
+    private RenderFragment Tip((string Text, (string Left, string Right, string Verdict) Active, (string Left, string Right, string Verdict) NotActive) tip) => @<span class="tip" tabindex="0">
+        <span class="badge rounded-pill text-bg-secondary">?</span>
+        <span class="tip-body card shadow p-2 small" role="tooltip">
+            <span class="d-block mb-2">@tip.Text</span>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.Active.Left</code>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.Active.Right</code>
+            <span class="badge align-self-start mb-2 @(tip.Active.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.Active.Verdict</span>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.NotActive.Left</code>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.NotActive.Right</code>
+            <span class="badge align-self-start @(tip.NotActive.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.NotActive.Verdict</span>
         </span>
     </span>;
 
