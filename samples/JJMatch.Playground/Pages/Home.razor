@@ -10,6 +10,20 @@
 <h1>JJMatch Playground</h1>
 <p>Paste two JSON documents, choose the rules, and compare them with <code>JJMatcher.Match</code>.</p>
 
+<div class="inputs">
+    <label>
+        Expected JSON
+        <textarea @bind="left" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 30 }"></textarea>
+    </label>
+    <label>
+        LLM response JSON
+        <textarea @bind="right" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 31 }"></textarea>
+    </label>
+</div>
+
+<details class="drawer">
+<summary>Settings</summary>
+
 <fieldset class="settings">
     <legend>Arrays</legend>
     <label><input type="radio" name="arrays" checked="@(arrayMode == JJArrayMatchingMode.Strict)" @onchange="() => arrayMode = JJArrayMatchingMode.Strict" /> Strict (order and count)</label>
@@ -55,16 +69,7 @@
     </div>
 </div>
 
-<div class="inputs">
-    <label>
-        Expected JSON
-        <textarea @bind="left" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 30 }"></textarea>
-    </label>
-    <label>
-        LLM response JSON
-        <textarea @bind="right" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 31 }"></textarea>
-    </label>
-</div>
+</details>
 
 <button @onclick="Compare">Compare</button>
 

@@ -10,6 +10,17 @@ body {
     color: #666;
 }
 
+.drawer {
+    margin: 0 0 0.75rem;
+}
+
+.drawer summary {
+    cursor: pointer;
+    font-weight: 600;
+    margin: 0 0 0.5rem;
+    user-select: none;
+}
+
 .settings {
     border: 1px solid #ddd;
     border-radius: 4px;
