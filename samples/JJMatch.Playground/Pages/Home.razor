@@ -27,83 +27,151 @@
 <summary class="card-header fw-semibold">Settings</summary>
 <div class="card-body">
 
-<div class="row g-4 mb-4">
-    <fieldset class="col-md-6 col-xl-4">
-        <legend class="fs-6 fw-semibold">Arrays</legend>
-        <div class="form-check">
-            <input class="form-check-input" type="radio" name="arrays" id="arrays-strict" checked="@(arrayMode == JJArrayMatchingMode.Strict)" @onchange="() => arrayMode = JJArrayMatchingMode.Strict" />
-            <label class="form-check-label" for="arrays-strict">Strict (order and count)</label>
-        </div>
-        <div class="form-check">
-            <input class="form-check-input" type="radio" name="arrays" id="arrays-unordered" checked="@(arrayMode == JJArrayMatchingMode.Unordered)" @onchange="() => arrayMode = JJArrayMatchingMode.Unordered" />
-            <label class="form-check-label" for="arrays-unordered">Unordered (count only)</label>
-        </div>
-        <div class="form-check">
-            <input class="form-check-input" type="radio" name="arrays" id="arrays-structure" checked="@(arrayMode == JJArrayMatchingMode.StructureOnly)" @onchange="() => arrayMode = JJArrayMatchingMode.StructureOnly" />
-            <label class="form-check-label" for="arrays-structure">StructureOnly (shapes only)</label>
-        </div>
-    </fieldset>
+<div class="row g-3 mb-4">
+    <div class="col-lg-4">
+        <section class="border rounded p-3 h-100 position-relative">
+            <h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Scope</h2>
 
-    <fieldset class="col-md-6 col-xl-4">
-        <legend class="fs-6 fw-semibold">Values (identical always match; rules combined with OR)</legend>
-        <div class="form-check form-check-inline">
-            <input class="form-check-input" type="checkbox" id="values-normalized" @bind="normalized" />
-            <label class="form-check-label" for="values-normalized">Normalized</label>
-        </div>
-        <div class="form-check form-check-inline">
-            <input class="form-check-input" type="checkbox" id="values-fuzzy" @bind="fuzzy" />
-            <label class="form-check-label" for="values-fuzzy">Fuzzy</label>
-        </div>
-        <div class="form-check form-check-inline">
-            <input class="form-check-input" type="checkbox" id="values-numeric" @bind="numeric" />
-            <label class="form-check-label" for="values-numeric">Numeric</label>
-        </div>
-        <label class="form-label mt-2 mb-1" for="fuzzy-threshold">FuzzyThreshold <span class="text-body-secondary">(0 to 1, least similarity Fuzzy accepts)</span></label>
-        <input class="form-control form-control-sm number-input" type="number" id="fuzzy-threshold" min="0" max="1" step="0.05" @bind="fuzzyThreshold" />
-    </fieldset>
+            <fieldset class="mb-3">
+                <legend class="fs-6 fw-semibold mb-1">Compare</legend>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="compare-structural" @bind="structuralMatching" />
+                    <label class="form-check-label" for="compare-structural">StructuralMatching</label>
+                    @Tip(StructuralTip)
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="compare-value" @bind="valueMatching" />
+                    <label class="form-check-label" for="compare-value">ValueMatching</label>
+                    @Tip(ValueTip)
+                </div>
+                <div class="form-text">Neither selected means both.</div>
+            </fieldset>
 
-    <fieldset class="col-md-6 col-xl-4">
-        <legend class="fs-6 fw-semibold">Property names</legend>
-        <div class="form-check">
-            <input class="form-check-input" type="radio" name="names" id="names-exact" checked="@(nameMode == JJPropertyNameMatchingMode.Exact)" @onchange="() => nameMode = JJPropertyNameMatchingMode.Exact" />
-            <label class="form-check-label" for="names-exact">Exact (character by character)</label>
-        </div>
-        <div class="form-check">
-            <input class="form-check-input" type="radio" name="names" id="names-normalized" checked="@(nameMode == JJPropertyNameMatchingMode.Normalized)" @onchange="() => nameMode = JJPropertyNameMatchingMode.Normalized" />
-            <label class="form-check-label" for="names-normalized">Normalized (case, outer white space and Unicode form ignored)</label>
-        </div>
-    </fieldset>
+            <label class="form-label fw-semibold mb-1" for="max-depth">MaxDepth</label>
+            @Tip(MaxDepthTip)
+            <input class="form-control form-control-sm number-input" type="number" id="max-depth" min="1" @bind="maxDepth" />
+            <div class="form-text">Deepest nesting allowed, at least 1.</div>
+        </section>
+    </div>
 
-    <fieldset class="col-md-6 col-xl-4">
-        <legend class="fs-6 fw-semibold">Compare (neither selected means both)</legend>
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="compare-structural" @bind="structuralMatching" />
-            <label class="form-check-label" for="compare-structural">StructuralMatching</label>
-        </div>
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="compare-value" @bind="valueMatching" />
-            <label class="form-check-label" for="compare-value">ValueMatching</label>
-        </div>
-    </fieldset>
+    <div class="col-lg-4">
+        <section class="border rounded p-3 h-100 position-relative">
+            <h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Structure</h2>
 
-    <fieldset class="col-md-6 col-xl-4">
-        <legend class="fs-6 fw-semibold">Limits</legend>
-        <label class="form-label mb-1" for="max-depth">MaxDepth <span class="text-body-secondary">(at least 1)</span></label>
-        <input class="form-control form-control-sm number-input" type="number" id="max-depth" min="1" @bind="maxDepth" />
-    </fieldset>
+            <fieldset class="mb-3">
+                <legend class="fs-6 fw-semibold mb-1">Arrays</legend>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="arrays" id="arrays-strict" checked="@(arrayMode == JJArrayMatchingMode.Strict)" @onchange="() => arrayMode = JJArrayMatchingMode.Strict" />
+                    <label class="form-check-label" for="arrays-strict">Strict <span class="small text-body-secondary">values and count</span></label>
+                    @Tip(StrictTip)
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="arrays" id="arrays-structure" checked="@(arrayMode == JJArrayMatchingMode.StructureOnly)" @onchange="() => arrayMode = JJArrayMatchingMode.StructureOnly" />
+                    <label class="form-check-label" for="arrays-structure">StructureOnly <span class="small text-body-secondary">shapes only</span></label>
+                    @Tip(StructureOnlyTip)
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend class="fs-6 fw-semibold mb-1">Property names</legend>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="names-normalized" @bind="normalizedNames" />
+                    <label class="form-check-label" for="names-normalized">Normalized <span class="small text-body-secondary">case, outer white space and Unicode form ignored</span></label>
+                    @Tip(NormalizedNamesTip)
+                </div>
+                <div class="form-text">Identical names always match.</div>
+            </fieldset>
+        </section>
+    </div>
+
+    <div class="col-lg-4">
+        <section class="border rounded p-3 h-100 position-relative">
+            <h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Values</h2>
+
+            <fieldset class="mb-3">
+                <legend class="fs-6 fw-semibold mb-1">Match rules</legend>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="values-normalized" @bind="normalized" />
+                    <label class="form-check-label" for="values-normalized">Normalized</label>
+                    @Tip(NormalizedTip)
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="values-fuzzy" @bind="fuzzy" />
+                    <label class="form-check-label" for="values-fuzzy">Fuzzy</label>
+                    @Tip(FuzzyTip)
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="values-numeric" @bind="numeric" />
+                    <label class="form-check-label" for="values-numeric">Numeric</label>
+                    @Tip(NumericTip)
+                </div>
+                <div class="form-text">Identical values always match. Selected rules are combined with OR.</div>
+            </fieldset>
+
+            <label class="form-label fw-semibold mb-1" for="fuzzy-threshold">FuzzyThreshold</label>
+            @Tip(FuzzyThresholdTip)
+            <input class="form-control form-control-sm number-input" type="number" id="fuzzy-threshold" min="0" max="1" step="0.05" disabled="@(!fuzzy)" @bind="fuzzyThreshold" />
+            <div class="form-text">0 to 1, the least similarity Fuzzy accepts. Used only when Fuzzy is selected.</div>
+        </section>
+    </div>
+
+    <div class="col-12">
+        <section class="border rounded p-3 h-100 position-relative">
+            <h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Scoring</h2>
+
+            <fieldset class="mb-3">
+                <legend class="fs-6 fw-semibold mb-1">Mode</legend>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="scoring" id="scoring-standard" checked="@(scoringMode == JJScoringMode.Standard)" @onchange="() => scoringMode = JJScoringMode.Standard" />
+                    <label class="form-check-label" for="scoring-standard">Standard <span class="small text-body-secondary">every difference counts fully</span></label>
+                    @Tip(StandardTip)
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="scoring" id="scoring-weighted" checked="@(scoringMode == JJScoringMode.Weighted)" @onchange="() => scoringMode = JJScoringMode.Weighted" />
+                    <label class="form-check-label" for="scoring-weighted">Weighted <span class="small text-body-secondary">each kind of difference counts by its weight</span></label>
+                    @Tip(WeightedTip)
+                </div>
+            </fieldset>
+
+            <div class="row g-3">
+                <div class="col-auto">
+                    <label class="form-label fw-semibold mb-1" for="weight-missing">MissingWeight</label>
+                    @Tip(MissingWeightTip)
+                    <input class="form-control form-control-sm number-input" type="number" id="weight-missing" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="missingWeight" />
+                </div>
+                <div class="col-auto">
+                    <label class="form-label fw-semibold mb-1" for="weight-added">AddedWeight</label>
+                    @Tip(AddedWeightTip)
+                    <input class="form-control form-control-sm number-input" type="number" id="weight-added" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="addedWeight" />
+                </div>
+                <div class="col-auto">
+                    <label class="form-label fw-semibold mb-1" for="weight-type">TypeMismatchWeight</label>
+                    @Tip(TypeMismatchWeightTip)
+                    <input class="form-control form-control-sm number-input" type="number" id="weight-type" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="typeMismatchWeight" />
+                </div>
+                <div class="col-auto">
+                    <label class="form-label fw-semibold mb-1" for="weight-value">ValueMismatchWeight</label>
+                    @Tip(ValueMismatchWeightTip)
+                    <input class="form-control form-control-sm number-input" type="number" id="weight-value" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="valueMismatchWeight" />
+                </div>
+            </div>
+            <div class="form-text">@JJScoringSettings.MinWeight (least important) to @JJScoringSettings.MaxWeight (the Standard cost). Used only when Weighted is selected.</div>
+        </section>
+    </div>
 </div>
 
+<h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Code for the selected settings</h2>
 <div class="row g-3">
     <div class="col-lg-6">
         <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="fw-semibold">C# for the selected settings</span>
+            <span class="fw-semibold">C#</span>
             <button class="btn btn-sm btn-outline-secondary" @onclick="() => Copy(Snippet())">Copy</button>
         </div>
         <pre class="snippet border rounded bg-body-tertiary p-2 mb-0"><code class="language-csharp">@Snippet()</code></pre>
     </div>
     <div class="col-lg-6">
         <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="fw-semibold">JJSetting.json for the selected settings</span>
+            <span class="fw-semibold">JJSetting.json</span>
             <button class="btn btn-sm btn-outline-secondary" @onclick="() => Copy(SettingsJson())">Copy</button>
         </div>
         <pre class="snippet border rounded bg-body-tertiary p-2 mb-0"><code class="language-json">@SettingsJson()</code></pre>
@@ -204,11 +272,50 @@ else if (result is not null)
     private string? error;
 
     private JJArrayMatchingMode arrayMode = JJArrayMatchingMode.Strict;
-    private JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.Exact;
-    private bool normalized, fuzzy, numeric;
+    private bool normalized, fuzzy, numeric, normalizedNames;
     private bool structuralMatching = true, valueMatching = true;
     private int maxDepth = new JJMatchSettings().MaxDepth;
     private double fuzzyThreshold = new JJMatchSettings().FuzzyThreshold;
+    private JJScoringMode scoringMode = new JJScoringSettings().Mode;
+    private int missingWeight = new JJScoringSettings().MissingWeight;
+    private int addedWeight = new JJScoringSettings().AddedWeight;
+    private int typeMismatchWeight = new JJScoringSettings().TypeMismatchWeight;
+    private int valueMismatchWeight = new JJScoringSettings().ValueMismatchWeight;
+
+    // One tooltip per setting: what it does, then one pair of documents and whether that setting
+    // accepts or rejects them. Scoring settings never change that verdict, so their tooltips carry none.
+    private static readonly (string Text, string Left, string Right, string Verdict)
+        StructuralTip = ("When active, property names, JSON types and nesting are compared. Selected alone, values are ignored.", Object("\"age\": 30"), Object("\"age\": 31"), "Accepted"),
+        ValueTip = ("When active, primitive values are compared, using the Values rules.", Object("\"age\": 30"), Object("\"age\": 31"), "Rejected"),
+        MaxDepthTip = ("The deepest nesting of objects and arrays a document may have. Deeper input is rejected. At 1:", Object("\"user\": { \"age\": 30 }"), Object("\"user\": { \"age\": 30 }"), "Rejected"),
+        StrictTip = ("When active, array elements may be in any order, but each must occur the same number of times.", "[1, 2, 3]", "[3, 2, 1]", "Accepted"),
+        StructureOnlyTip = ("When active, only the shapes of array elements are compared. Count and values are ignored.", "[1, 2, 3]", "[9]", "Accepted"),
+        NormalizedNamesTip = ("When active, property names match ignoring case, outer white space and Unicode form.", Object("\"age\": 30"), Object("\" Age \": 30"), "Accepted"),
+        NormalizedTip = ("When active, strings match ignoring case, outer white space and Unicode form.", Object("\"city\": \"New York\""), Object("\"city\": \" new york \""), "Accepted"),
+        FuzzyTip = ("When active, strings match when they are similar enough, tolerating typos.", Object("\"name\": \"John Smith\""), Object("\"name\": \"Jon Smith\""), "Accepted"),
+        NumericTip = ("When active, numbers match as quantities, however they are written.", Object("\"age\": 30"), Object("\"age\": 30.0"), "Accepted"),
+        FuzzyThresholdTip = ("The least similarity Fuzzy accepts: 0.8 allows one edit for every five characters. At 0.8:", Object("\"name\": \"John\""), Object("\"name\": \"Jon\""), "Rejected"),
+        StandardTip = ("When active, every difference lowers the score fully, whatever its kind.", Object("\"age\": 30,\n  \"name\": \"Ann\""), Object("\"age\": 30"), ""),
+        WeightedTip = ("When active, each kind of difference lowers the score by its weight.", Object("\"age\": 30,\n  \"name\": \"Ann\""), Object("\"age\": 30"), ""),
+        MissingWeightTip = ("How much content missing from the response lowers the Weighted score. At 8:", Object("\"age\": 30,\n  \"name\": \"Ann\""), Object("\"age\": 30"), ""),
+        AddedWeightTip = ("How much content only the response has lowers the Weighted score. At 3:", Object("\"age\": 30"), Object("\"age\": 30,\n  \"name\": \"Ann\""), ""),
+        TypeMismatchWeightTip = ("How much a value of another JSON type lowers the Weighted score. At 10:", Object("\"age\": 30"), Object("\"age\": \"30\""), ""),
+        ValueMismatchWeightTip = ("How much a different value of the same type lowers the Weighted score. At 6:", Object("\"age\": 30"), Object("\"age\": 31"), "");
+
+    private static string Object(string properties) => "{\n  " + properties + "\n}";
+
+    private RenderFragment Tip((string Text, string Left, string Right, string Verdict) tip) => @<span class="tip" tabindex="0">
+        <span class="badge rounded-pill text-bg-secondary">?</span>
+        <span class="tip-body card shadow p-2 small" role="tooltip">
+            <span class="d-block mb-2">@tip.Text</span>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.Left</code>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.Right</code>
+            @if (tip.Verdict != "")
+            {
+                <span class="badge align-self-start @(tip.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.Verdict</span>
+            }
+        </span>
+    </span>;
 
     private void Compare()
     {
@@ -243,9 +350,17 @@ else if (result is not null)
         {
             ArrayMode = arrayMode,
             ValueMode = valueMode,
-            PropertyNameMode = nameMode,
+            PropertyNameMode = normalizedNames ? JJPropertyNameMatchingMode.Normalized : JJPropertyNameMatchingMode.None,
             FuzzyThreshold = fuzzyThreshold,
-            MaxDepth = maxDepth
+            MaxDepth = maxDepth,
+            Scoring =
+            {
+                Mode = scoringMode,
+                MissingWeight = missingWeight,
+                AddedWeight = addedWeight,
+                TypeMismatchWeight = typeMismatchWeight,
+                ValueMismatchWeight = valueMismatchWeight
+            }
         };
     }
 
@@ -263,6 +378,7 @@ else if (result is not null)
             : Flags<JJValueMatchingMode>(settings.ValueMode);
         var arrayModeText = Member(nameof(JJArrayMatchingMode), settings.ArrayMode.ToString());
         var nameModeText = Member(nameof(JJPropertyNameMatchingMode), settings.PropertyNameMode.ToString());
+        var scoringModeText = Member(nameof(JJScoringMode), settings.Scoring.Mode.ToString());
         var varKeyword = Keyword("var");
         var newKeyword = Keyword("new");
         // Two dollar signs: {{ }} interpolates, so the single braces of the object initializer are literal.
@@ -273,7 +389,15 @@ else if (result is not null)
                 ValueMode = {{valueModeText}},
                 PropertyNameMode = {{nameModeText}},
                 FuzzyThreshold = {{Number(settings.FuzzyThreshold)}},
-                MaxDepth = {{Number(settings.MaxDepth)}}
+                MaxDepth = {{Number(settings.MaxDepth)}},
+                Scoring =
+                {
+                    Mode = {{scoringModeText}},
+                    MissingWeight = {{Number(settings.Scoring.MissingWeight)}},
+                    AddedWeight = {{Number(settings.Scoring.AddedWeight)}},
+                    TypeMismatchWeight = {{Number(settings.Scoring.TypeMismatchWeight)}},
+                    ValueMismatchWeight = {{Number(settings.Scoring.ValueMismatchWeight)}}
+                }
             };
             {{varKeyword}} result = {{Type(nameof(JJMatcher))}}.Match(expectedJson, llmResponseJson, {{optionsText}}, settings);
             """);
@@ -293,7 +417,14 @@ else if (result is not null)
               {{Name(nameof(JJMatchSettings.ValueMode))}}: {{Text(valueModeText)}},
               {{Name(nameof(JJMatchSettings.PropertyNameMode))}}: {{Text(settings.PropertyNameMode.ToString())}},
               {{Name(nameof(JJMatchSettings.FuzzyThreshold))}}: {{Number(settings.FuzzyThreshold)}},
-              {{Name(nameof(JJMatchSettings.MaxDepth))}}: {{Number(settings.MaxDepth)}}
+              {{Name(nameof(JJMatchSettings.MaxDepth))}}: {{Number(settings.MaxDepth)}},
+              {{Name(nameof(JJMatchSettings.Scoring))}}: {
+                {{Name(nameof(JJScoringSettings.Mode))}}: {{Text(settings.Scoring.Mode.ToString())}},
+                {{Name(nameof(JJScoringSettings.MissingWeight))}}: {{Number(settings.Scoring.MissingWeight)}},
+                {{Name(nameof(JJScoringSettings.AddedWeight))}}: {{Number(settings.Scoring.AddedWeight)}},
+                {{Name(nameof(JJScoringSettings.TypeMismatchWeight))}}: {{Number(settings.Scoring.TypeMismatchWeight)}},
+                {{Name(nameof(JJScoringSettings.ValueMismatchWeight))}}: {{Number(settings.Scoring.ValueMismatchWeight)}}
+              }
             }
             """);
     }

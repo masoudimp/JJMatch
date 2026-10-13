@@ -13,7 +13,7 @@
     <PackageId>JJMatch</PackageId>
     <Version>0.1.0</Version>
     <Authors>Masoud Imanpour</Authors>
-    <Description>Compare JSON documents in one call with clear differences and a deterministic similarity percentage. Supports ordered or unordered arrays and exact, normalized, numeric and fuzzy value rules.</Description>
+    <Description>Compare JSON documents in one call with clear differences and a deterministic similarity percentage. Array element order is ignored. Supports structure-only arrays and normalized, numeric and fuzzy value rules.</Description>
     <PackageTags>json;compare;diff;similarity;match;percentage</PackageTags>
     <PackageProjectUrl>https://github.com/masoudimp/JJMatch</PackageProjectUrl>
     <RepositoryUrl>https://github.com/masoudimp/JJMatch</RepositoryUrl>

@@ -5,7 +5,7 @@ namespace JJMatch;
 /// <summary>Optional comparison rules and resource limits. Configure before calling <see cref="JJMatcher.Match"/>, or load them with <see cref="FromJson"/>.</summary>
 public sealed class JJMatchSettings
 {
-    /// <summary>Array policy. The public API defaults to ordered, count-preserving comparison.</summary>
+    /// <summary>Array policy. The public API defaults to count-preserving comparison with values; element order is never significant.</summary>
     public JJArrayMatchingMode ArrayMode { get; set; } = JJArrayMatchingMode.Strict;
 
     /// <summary>
@@ -14,8 +14,8 @@ public sealed class JJMatchSettings
     /// </summary>
     public JJValueMatchingMode ValueMode { get; set; } = JJValueMatchingMode.None;
 
-    /// <summary>Property name rule. Defaults to Exact, so names are compared character by character.</summary>
-    public JJPropertyNameMatchingMode PropertyNameMode { get; set; } = JJPropertyNameMatchingMode.Exact;
+    /// <summary>Property name rule, accepting further pairs on top of identical names, which always pair. Defaults to None: identical names only.</summary>
+    public JJPropertyNameMatchingMode PropertyNameMode { get; set; } = JJPropertyNameMatchingMode.None;
 
     /// <summary>
     /// Least similarity the Fuzzy value rule accepts, from 0 to 1: one minus the edits allowed per character of the
@@ -50,7 +50,7 @@ public sealed class JJMatchSettings
     /// <summary>Maximum total JSON nodes across both inputs, from 1 to 1,000,000. Defaults to 100,000.</summary>
     public int MaxNodes { get; set; } = 100_000;
 
-    /// <summary>Maximum occurrences per side of an unordered or duplicate-property assignment, from 1 to 256. Defaults to 128.</summary>
+    /// <summary>Maximum occurrences per side of an array or duplicate-property assignment, from 1 to 256. Defaults to 128.</summary>
     public int MaxAssignmentSize { get; set; } = 128;
 
     /// <summary>Comparison work budget, including speculative pairs, signatures and value-distance work. Defaults to 10,000,000. Not a time limit.</summary>
@@ -59,7 +59,7 @@ public sealed class JJMatchSettings
     /// <summary>
     /// Reads settings from a JSON object, such as the content of a <c>JJSetting.json</c> file. Each property is
     /// named like the property here, ignoring case, and an omitted property keeps its default. Modes are written as
-    /// member names (<c>"Unordered"</c>); value rules are joined by <c>|</c> or <c>,</c> (<c>"Normalized | Numeric"</c>).
+    /// member names (<c>"StructureOnly"</c>); value rules are joined by <c>|</c> or <c>,</c> (<c>"Normalized | Numeric"</c>).
     /// Limits are integers and <see cref="FuzzyThreshold"/> a number. <see cref="Scoring"/> is a nested object whose
     /// properties are named like those of <see cref="JJScoringSettings"/>, with the mode as a member name and the
     /// weights as integers. The result is validated like settings passed to <see cref="JJMatcher.Match"/>.
@@ -145,7 +145,7 @@ public sealed class JJMatchSettings
             throw new ArgumentOutOfRangeException(nameof(ArrayMode));
         const JJValueMatchingMode known = JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric;
         if ((copy.ValueMode & ~known) != 0) throw new ArgumentOutOfRangeException(nameof(ValueMode));
-        if (copy.PropertyNameMode < JJPropertyNameMatchingMode.Exact || copy.PropertyNameMode > JJPropertyNameMatchingMode.Normalized)
+        if (copy.PropertyNameMode < JJPropertyNameMatchingMode.None || copy.PropertyNameMode > JJPropertyNameMatchingMode.Normalized)
             throw new ArgumentOutOfRangeException(nameof(PropertyNameMode));
         // Written as a double negative so that NaN is rejected too.
         if (!(copy.FuzzyThreshold >= 0 && copy.FuzzyThreshold <= 1)) throw new ArgumentOutOfRangeException(nameof(FuzzyThreshold));

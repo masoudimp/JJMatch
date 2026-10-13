@@ -5,15 +5,14 @@ public class JJMatcherIntegrationTests
     // Guide.md uses this exact pair in every row. Counts below are hand-tallied from that document,
     // independent of the production tree, shape signatures and assignment engine.
     [Theory]
-    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.None, JJMatchOptions.All, 10, 20, 9)]
-    [InlineData(JJArrayMatchingMode.Unordered, JJValueMatchingMode.None, JJMatchOptions.All, 14, 20, 5)]
+    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.None, JJMatchOptions.All, 14, 20, 5)]
     [InlineData(JJArrayMatchingMode.StructureOnly, JJValueMatchingMode.None, JJMatchOptions.All, 11, 17, 5)]
-    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Numeric, JJMatchOptions.All, 11, 20, 8)]
-    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Normalized, JJMatchOptions.All, 11, 20, 8)]
-    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 12, 20, 7)]
-    [InlineData(JJArrayMatchingMode.Unordered, JJValueMatchingMode.Numeric | JJValueMatchingMode.Normalized, JJMatchOptions.All, 16, 20, 3)]
+    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Numeric, JJMatchOptions.All, 15, 20, 4)]
+    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Normalized, JJMatchOptions.All, 15, 20, 4)]
+    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 16, 20, 3)]
+    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Numeric | JJValueMatchingMode.Normalized, JJMatchOptions.All, 16, 20, 3)]
     [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.None, JJMatchOptions.StructuralMatching, 19, 20, 0)]
-    [InlineData(JJArrayMatchingMode.Unordered, JJValueMatchingMode.Numeric | JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 17, 20, 2)]
+    [InlineData(JJArrayMatchingMode.Strict, JJValueMatchingMode.Numeric | JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 17, 20, 2)]
     public void Guide_configuration_table_matches_independently_counted_nodes(
         JJArrayMatchingMode arrayMode, JJValueMatchingMode valueMode, JJMatchOptions options,
         int matchedNodes, int effectiveNodesPerSide, int valueDifferences)
@@ -33,8 +32,6 @@ public class JJMatcherIntegrationTests
     }
 
     [Theory]
-    [InlineData("items", JJArrayMatchingMode.Unordered, JJValueMatchingMode.None, JJMatchOptions.All, 300d / 7, 4)]
-    [InlineData("items", JJArrayMatchingMode.StructureOnly, JJValueMatchingMode.None, JJMatchOptions.All, 300d / 7, 4)]
     [InlineData("total", JJArrayMatchingMode.Strict, JJValueMatchingMode.Numeric, JJMatchOptions.All, 0, 1)]
     [InlineData("customer.name", JJArrayMatchingMode.Strict, JJValueMatchingMode.Normalized, JJMatchOptions.All, 0, 1)]
     [InlineData("customer.contact", JJArrayMatchingMode.Strict, JJValueMatchingMode.Fuzzy, JJMatchOptions.All, 0, 1)]
@@ -97,17 +94,16 @@ public class JJMatcherIntegrationTests
 
     // Keep enum numeric compatibility while choosing an explicit, intuitive public default.
     [Fact]
-    public void Array_matching_mode_defaults_to_structure_only_and_the_other_modes_are_distinct()
+    public void Array_matching_mode_defaults_to_structure_only_and_strict_is_the_other_mode()
     {
         Assert.Equal(JJArrayMatchingMode.StructureOnly, default(JJArrayMatchingMode));
         Assert.Equal(JJArrayMatchingMode.Strict, new JJMatchSettings().ArrayMode);
 
         Assert.Equal(
-            [JJArrayMatchingMode.StructureOnly, JJArrayMatchingMode.Unordered, JJArrayMatchingMode.Strict],
+            [JJArrayMatchingMode.StructureOnly, JJArrayMatchingMode.Strict],
             Enum.GetValues<JJArrayMatchingMode>());
 
-        Assert.Equal(1, (int)JJArrayMatchingMode.Unordered);
-        Assert.Equal(2, (int)JJArrayMatchingMode.Strict);
+        Assert.Equal(1, (int)JJArrayMatchingMode.Strict);
     }
     [Fact]
     public void Public_paths_escape_names_and_preserve_duplicate_occurrences()
@@ -135,9 +131,9 @@ public class JJMatcherIntegrationTests
     [Fact]
     public async Task Concurrent_calls_and_failed_calls_do_not_share_state()
     {
-        var left = Input("Left", "arrayValues");
-        var right = Input("Right", "arrayValues");
-        var settings = new JJMatchSettings { ArrayMode = JJArrayMatchingMode.Unordered };
+        var left = Input("Left", "shapeValues");
+        var right = Input("Right", "shapeValues");
+        var settings = new JJMatchSettings { ArrayMode = JJArrayMatchingMode.StructureOnly };
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => JJMatcher.Match(left, right, cancellationToken: cancellation.Token));
@@ -149,7 +145,7 @@ public class JJMatcherIntegrationTests
             Consistent(results[index]);
             Assert.Equal(index % 2 == 0 ? 100 : 50, results[index].Score);
         }
-        Assert.Equal(JJArrayMatchingMode.Unordered, settings.ArrayMode);
+        Assert.Equal(JJArrayMatchingMode.StructureOnly, settings.ArrayMode);
     }
 
     private static System.Text.Json.JsonElement Fixture(string side)
@@ -221,8 +217,7 @@ public class JJMatcherIntegrationTests
         Assert.Equal("$", result.Differences[0].Path);
 
         var nested = JJMatcher.Match(Input("Left", "nested"), Input("Right", "nested"));
-        Assert.Equal(new[] { "$.profile.city", "$.tags[0]", "$.tags[1]", "$.old", "$.nullable", "$.new" },
-            nested.Differences.Select(d => d.Path));
+        Assert.Equal(new[] { "$.profile.city", "$.old", "$.nullable", "$.new" }, nested.Differences.Select(d => d.Path));
         var nullDifference = nested.Differences.Single(d => d.Path == "$.nullable");
         Assert.Equal(System.Text.Json.JsonValueKind.Null, nullDifference.LeftValue!.Value.ValueKind);
         Assert.Null(nullDifference.RightValue);
@@ -246,28 +241,26 @@ public class JJMatcherIntegrationTests
     }
 
     [Fact]
-    public void Strict_unordered_and_shape_arrays_have_explicit_semantics()
+    public void Strict_and_shape_arrays_have_explicit_semantics()
     {
-        var left = Input("Left", "arrayValues");
-        var right = Input("Right", "arrayValues");
-        var strict = JJMatcher.Match(left, right);
-        Assert.Equal(50, strict.Score); // Array and middle element out of four nodes.
-        Assert.Equal(new[] { "$[0]", "$[2]" }, strict.Differences.Select(d => d.Path));
-        var unordered = JJMatcher.Match(left, right, settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.Unordered });
-        Assert.True(unordered.IsMatch);
+        // Element order plays no part: [1, 2, 3] against [3, 2, 1] pairs every element with its equal.
+        var strict = JJMatcher.Match(Input("Left", "arrayValues"), Input("Right", "arrayValues"));
+        Consistent(strict);
+        Assert.True(strict.IsMatch);
         var shapes = JJMatcher.Match(Input("Left", "shapeValues"), Input("Right", "shapeValues"),
             settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.StructureOnly });
         Assert.True(shapes.IsMatch); // One shape on each side, values and multiplicity ignored inside the array.
-        Assert.False(JJMatcher.Match(Input("Left", "shapeValues"), Input("Right", "shapeValues")).IsMatch);
+        // Strict keeps values and counts: the arrays and one element object match, two of five and three nodes.
+        var counted = JJMatcher.Match(Input("Left", "shapeValues"), Input("Right", "shapeValues"));
+        Assert.Equal(50, counted.Score);
+        Assert.Equal(new[] { (JJDifferenceKind.ValueMismatch, "$[0].id"), (JJDifferenceKind.Missing, "$[1]") },
+            counted.Differences.Select(d => (d.Kind, d.Path)));
     }
 
-    [Theory]
-    [InlineData(JJArrayMatchingMode.Strict)]
-    [InlineData(JJArrayMatchingMode.Unordered)]
-    public void Count_preserving_arrays_report_surplus_and_use_both_sizes(JJArrayMatchingMode mode)
+    [Fact]
+    public void Count_preserving_arrays_report_surplus_and_use_both_sizes()
     {
-        var settings = new JJMatchSettings { ArrayMode = mode };
-        var result = JJMatcher.Match(Input("Left", "surplus"), Input("Right", "surplus"), settings: settings);
+        var result = JJMatcher.Match(Input("Left", "surplus"), Input("Right", "surplus"));
         Consistent(result);
         Assert.Equal(600d / 7, result.Score); // Three matched nodes; sizes three and four.
         var difference = Assert.Single(result.Differences);
@@ -277,10 +270,9 @@ public class JJMatcherIntegrationTests
     }
 
     [Fact]
-    public void Unordered_pairing_optimizes_the_complete_group_and_reports_original_indices()
+    public void Array_pairing_optimizes_the_complete_group_and_reports_original_indices()
     {
-        var result = JJMatcher.Match(Input("Left", "arrayObjects"), Input("Right", "arrayObjects"),
-            settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.Unordered });
+        var result = JJMatcher.Match(Input("Left", "arrayObjects"), Input("Right", "arrayObjects"));
         Assert.Equal(600d / 7, result.Score); // Six of seven nodes match on both sides.
         var difference = Assert.Single(result.Differences);
         Assert.Equal("$[0].name", difference.LeftPath);
@@ -345,10 +337,10 @@ public class JJMatcherIntegrationTests
     [Fact]
     public void Normalized_names_pair_properties_that_differ_in_case_padding_or_unicode_form()
     {
-        Assert.Equal(JJPropertyNameMatchingMode.Exact, new JJMatchSettings().PropertyNameMode);
+        Assert.Equal(JJPropertyNameMatchingMode.None, new JJMatchSettings().PropertyNameMode);
         var left = Input("Left", "propertyNames");
         var right = Input("Right", "propertyNames");
-        // Ten nodes on each side. Under Exact names only the root, the array and its two element objects pair.
+        // Ten nodes on each side. Under None only identical names pair, so only the root, the array and its two element objects pair.
         var exact = JJMatcher.Match(left, right);
         Consistent(exact);
         Assert.Equal(40, exact.Score);
@@ -367,7 +359,7 @@ public class JJMatcherIntegrationTests
         Assert.Equal(90, JJMatcher.Match(left, right, JJMatchOptions.StructuralMatching, settings).Score);
 
         // Under StructureOnly the two element objects of each side are one shape once their names fold together;
-        // under Exact names they are two shapes on each side, and only the two spelled "sku" can be paired.
+        // under None they are two shapes on each side, and only the two spelled "sku" can be paired.
         var leftItems = Fixture("Left").GetProperty("publicApi").GetProperty("propertyNames").GetProperty("items").GetRawText();
         var rightItems = Fixture("Right").GetProperty("publicApi").GetProperty("propertyNames").GetProperty("items").GetRawText();
         var shapes = JJMatcher.Match(leftItems, rightItems,
@@ -403,10 +395,10 @@ public class JJMatcherIntegrationTests
     }
 
     [Fact]
-    public void Unordered_fuzzy_arrays_use_a_bijection_not_transitive_grouping()
+    public void Fuzzy_arrays_use_a_bijection_not_transitive_grouping()
     {
         var result = JJMatcher.Match(Input("Left", "fuzzyAssignment"), Input("Right", "fuzzyAssignment"),
-            settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.Unordered, ValueMode = JJValueMatchingMode.Fuzzy });
+            settings: new JJMatchSettings { ValueMode = JJValueMatchingMode.Fuzzy });
         // The first left string matches only the second right string; a greedy exact-first choice loses a match.
         Assert.True(result.IsMatch);
         Assert.Equal(100, result.Score);
@@ -445,22 +437,18 @@ public class JJMatcherIntegrationTests
     }
 
     [Theory]
-    [InlineData("No real difference: property order", JJArrayMatchingMode.Strict, true)]
-    [InlineData("Array order: elements reversed", JJArrayMatchingMode.Strict, false)]
-    [InlineData("Array order: elements reversed", JJArrayMatchingMode.Unordered, true)]
-    public void Stringified_root_from_the_change_catalogue_is_compared_as_the_document_it_holds(
-        string category, JJArrayMatchingMode arrayMode, bool expectedMatch)
+    [InlineData("No real difference: property order")]
+    [InlineData("Array order: elements reversed")]
+    public void Stringified_root_from_the_change_catalogue_is_compared_as_the_document_it_holds(string category)
     {
         // The catalogue strings hold a complete JSON object or array. As literal strings none of these pairs is equal;
-        // decoded, they follow the object and array rules of the selected mode.
-        var settings = new JJMatchSettings { ArrayMode = arrayMode };
+        // decoded, they follow the object and array rules, under which neither property nor element order matters.
         foreach (var (inA, inB) in Catalogue(category))
         {
-            var result = JJMatcher.Match(inA, inB, settings: settings);
+            var result = JJMatcher.Match(inA, inB);
             Consistent(result);
-            Assert.Equal(expectedMatch, result.IsMatch);
-            Assert.Equal(expectedMatch, JJMatcher.Match(inB, inA, settings: settings).IsMatch);
-            if (!expectedMatch) Assert.All(result.Differences, d => Assert.NotEqual("$", d.LeftPath ?? d.RightPath));
+            Assert.True(result.IsMatch);
+            Assert.True(JJMatcher.Match(inB, inA).IsMatch);
         }
     }
 
@@ -512,12 +500,12 @@ public class JJMatcherIntegrationTests
         // The depth has no upper bound: the parser's former cap of 128 is accepted and above.
         Assert.True(JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 129 }).IsMatch);
         Assert.True(JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = int.MaxValue }).IsMatch);
-        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { ArrayMode = (JJArrayMatchingMode)9 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { ArrayMode = (JJArrayMatchingMode)2 }));
         Assert.Throws<InvalidOperationException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxInputLength = 1 }));
         Assert.Throws<InvalidOperationException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxNodes = 1 }));
         Assert.Throws<InvalidOperationException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxWork = 1 }));
         Assert.Throws<InvalidOperationException>(() => JJMatcher.Match(Input("Left", "arrayValues"), Input("Right", "arrayValues"),
-            settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.Unordered, MaxAssignmentSize = 2 }));
+            settings: new JJMatchSettings { MaxAssignmentSize = 2 }));
         Assert.ThrowsAny<System.Text.Json.JsonException>(() => JJMatcher.Match(Input("Left", "nested"), valid,
             settings: new JJMatchSettings { MaxDepth = 1 }));
         using var cancellation = new CancellationTokenSource();
@@ -554,41 +542,38 @@ public class JJMatcherIntegrationTests
     [Fact]
     public void Weighted_scoring_discounts_each_kind_by_its_weight_and_each_subtree_by_its_size()
     {
-        // nested: 8 nodes on each side; the root, profile and tags match. Unmatched: city (2 nodes), tags[0] (2),
-        // tags[1] (2) as value mismatches, old (1) and nullable (1) missing, new (array + 1 element) added: 10 nodes,
-        // which is 16 - 2 × 3. Standard: 600 / 16. Default weights: 3 × 2 × 6 + 2 × 8 + 2 × 3 = 58 against 2 × 10 × 3.
+        // nested: 8 nodes on each side; the root, profile, tags and its two elements match. Unmatched: city (2 nodes)
+        // as a value mismatch, old (1) and nullable (1) missing, new (array + 1 element) added: 6 nodes, which is
+        // 16 - 2 × 5. Standard: 1000 / 16. Default weights: 2 × 6 + 2 × 8 + 2 × 3 = 34 against 2 × 10 × 5.
         var left = Input("Left", "nested");
         var right = Input("Right", "nested");
         var weighted = new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted } };
         var result = JJMatcher.Match(left, right, settings: weighted);
         Consistent(result);
-        Assert.Equal(37.5, JJMatcher.Match(left, right).Score);
-        Assert.Equal(6000d / 118, result.Score);
+        Assert.Equal(62.5, JJMatcher.Match(left, right).Score);
+        Assert.Equal(10000d / 134, result.Score);
         Assert.Equal(result.Score, result.ValueMatchPercentage);
         // Each difference reports the weight applied to it: the configured weight of its kind.
-        Assert.Equal(new[] { ("$.profile.city", 6), ("$.tags[0]", 6), ("$.tags[1]", 6), ("$.old", 8), ("$.nullable", 8), ("$.new", 3) },
+        Assert.Equal(new[] { ("$.profile.city", 6), ("$.old", 8), ("$.nullable", 8), ("$.new", 3) },
             result.Differences.Select(d => (d.Path, d.ScoreWeight)));
         // The added array weighs its two nodes: 7 more per node when its weight goes from 3 to 10, 2 less at 1.
         weighted.Scoring.AddedWeight = 10;
         var heavierAdded = JJMatcher.Match(left, right, settings: weighted);
-        Assert.Equal(6000d / 132, heavierAdded.Score);
+        Assert.Equal(10000d / 148, heavierAdded.Score);
         Assert.Equal(10, heavierAdded.Differences.Single(d => d.Kind == JJDifferenceKind.Added).ScoreWeight);
         weighted.Scoring.AddedWeight = 1;
-        Assert.Equal(6000d / 114, JJMatcher.Match(left, right, settings: weighted).Score);
+        Assert.Equal(10000d / 130, JJMatcher.Match(left, right, settings: weighted).Score);
         // The structural pass has no value mismatches: old, nullable and new remain, 8 + 8 + 2 against 2 × 10 × 6.
         Assert.Equal(12000d / 138, JJMatcher.Match(left, right, settings: weighted).StructuralMatchPercentage);
         Assert.Equal(12000d / 138, JJMatcher.Match(left, right, JJMatchOptions.StructuralMatching, weighted).Score);
 
-        // The guide pair under Strict + Exact: 10 matched, 9 value mismatches of 2 nodes, legacyCode missing (1),
-        // coupon added (1): 108 + 8 + 3 = 119 against 200. The structural diagnostic: 19 matched, 8 + 3 against 380.
+        // The guide pair under the defaults: 14 matched, 5 value mismatches of 2 nodes, legacyCode missing (1),
+        // coupon added (1): 60 + 8 + 3 = 71 against 280. The structural diagnostic: 19 matched, 8 + 3 against 380.
         var guide = JJMatcher.Match(Input("Left", "guideScenario"), Input("Right", "guideScenario"),
             settings: new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted } });
         Consistent(guide);
-        Assert.Equal(20000d / 319, guide.Score);
+        Assert.Equal(28000d / 351, guide.Score);
         Assert.Equal(38000d / 391, guide.StructuralMatchPercentage);
-        // Unordered pairs the items: 14 matched and 5 value mismatches, 60 + 11 against 280.
-        Assert.Equal(28000d / 351, JJMatcher.Match(Input("Left", "guideScenario"), Input("Right", "guideScenario"),
-            settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.Unordered, Scoring = { Mode = JJScoringMode.Weighted } }).Score);
 
         // A weight of 10 counts a lost node exactly as Standard does: basic has one value mismatch and nothing else.
         var basic = new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted, ValueMismatchWeight = 10 } };
