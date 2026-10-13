@@ -29,6 +29,9 @@
     <label><input type="checkbox" @bind="parseStringifiedJson" /> ParseStringifiedJson</label>
 </fieldset>
 
+<p class="snippet-label">Equivalent call (copy into your code):</p>
+<pre class="snippet"><code>@Snippet()</code></pre>
+
 <div class="inputs">
     <label>
         Left JSON
@@ -102,29 +105,63 @@ else if (result is not null)
         error = null;
         try
         {
-            var valueMode = JJValueMatchingMode.None;
-            if (exact) valueMode |= JJValueMatchingMode.Exact;
-            if (normalized) valueMode |= JJValueMatchingMode.Normalized;
-            if (fuzzy) valueMode |= JJValueMatchingMode.Fuzzy;
-            if (numeric) valueMode |= JJValueMatchingMode.Numeric;
-
-            // All is zero in the library, so selecting neither option is the same as selecting both.
-            var options = JJMatchOptions.All;
-            if (structuralMatching) options |= JJMatchOptions.StructuralMatching;
-            if (valueMatching) options |= JJMatchOptions.ValueMatching;
-
-            var settings = new JJMatchSettings
-            {
-                ArrayMode = arrayMode,
-                ValueMode = valueMode,
-                ParseStringifiedJson = parseStringifiedJson
-            };
-            result = JJMatcher.Match(left, right, options, settings);
+            result = JJMatcher.Match(left, right, Options(), Settings());
         }
         catch (Exception exception)
         {
             error = $"{exception.GetType().Name}: {exception.Message}";
         }
+    }
+
+    // All is zero in the library, so selecting neither option is the same as selecting both.
+    private JJMatchOptions Options()
+    {
+        var options = JJMatchOptions.All;
+        if (structuralMatching) options |= JJMatchOptions.StructuralMatching;
+        if (valueMatching) options |= JJMatchOptions.ValueMatching;
+        return options;
+    }
+
+    private JJMatchSettings Settings()
+    {
+        var valueMode = JJValueMatchingMode.None;
+        if (exact) valueMode |= JJValueMatchingMode.Exact;
+        if (normalized) valueMode |= JJValueMatchingMode.Normalized;
+        if (fuzzy) valueMode |= JJValueMatchingMode.Fuzzy;
+        if (numeric) valueMode |= JJValueMatchingMode.Numeric;
+        return new JJMatchSettings
+        {
+            ArrayMode = arrayMode,
+            ValueMode = valueMode,
+            ParseStringifiedJson = parseStringifiedJson
+        };
+    }
+
+    // The C# call that reproduces the selected settings, built from the same values Compare uses.
+    private string Snippet()
+    {
+        var options = Options();
+        var settings = Settings();
+        var optionsText = options == JJMatchOptions.All
+            ? nameof(JJMatchOptions) + "." + nameof(JJMatchOptions.All)
+            : Flags<JJMatchOptions>(options);
+        var valueModeText = settings.ValueMode == JJValueMatchingMode.None
+            ? nameof(JJValueMatchingMode) + "." + nameof(JJValueMatchingMode.None)
+            : Flags<JJValueMatchingMode>(settings.ValueMode);
+        var parseText = settings.ParseStringifiedJson ? "true" : "false";
+        return $"JJMatcher.Match(left, right, {optionsText}, new JJMatchSettings {{ ArrayMode = "
+            + $"{nameof(JJArrayMatchingMode)}.{settings.ArrayMode}, ValueMode = {valueModeText}, "
+            + $"ParseStringifiedJson = {parseText} }});";
+    }
+
+    // Writes a non-zero flags value as "Type.A | Type.B" in declaration order.
+    private static string Flags<T>(T value) where T : struct, Enum
+    {
+        var number = Convert.ToInt64(value, CultureInfo.InvariantCulture);
+        var parts = Enum.GetValues<T>()
+            .Where(member => Convert.ToInt64(member, CultureInfo.InvariantCulture) is var bit && bit != 0 && (number & bit) == bit)
+            .Select(member => typeof(T).Name + "." + member);
+        return string.Join(" | ", parts);
     }
 
     private static string Percent(double? value) =>
