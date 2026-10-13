@@ -56,6 +56,40 @@ body {
     color: #267f99;
 }
 
+.snippet .num {
+    color: #098658;
+}
+
+.snippet .pn {
+    color: #0451a5;
+}
+
+.snippet .str {
+    color: #a31515;
+}
+
+.snippets {
+    display: grid;
+    gap: 0 1rem;
+    grid-template-columns: 1fr 1fr;
+}
+
+.copy {
+    font-size: 0.8rem;
+    margin: 0 0 0 0.5rem;
+    padding: 0.1rem 0.6rem;
+}
+
+.note {
+    color: #666;
+    font-size: 0.9rem;
+    margin: -0.5rem 0 1rem;
+}
+
+.settings input[type="number"] {
+    width: 5rem;
+}
+
 .inputs {
     display: grid;
     gap: 1rem;
@@ -123,7 +157,7 @@ td {
 }
 
 @media (max-width: 48rem) {
-    .inputs {
+    .inputs, .snippets {
         grid-template-columns: 1fr;
     }
 }

@@ -16,12 +16,14 @@ internal static class StructureMatcher
 
     // Structural alignment stays here; primitive value decisions are delegated to ValueMatcher. One cache can serve
     // several calls over the same trees with the same modes, such as the value-aware and structural passes of a
-    // public comparison.
+    // public comparison. The name mode decides which property names pair; a cache given here must have been built
+    // with the same one. The fuzzy threshold is handed to every value comparison; omitted, it is the library default.
     internal static StructureMatchResult Match(JsonStructureNode left, JsonStructureNode right,
         JJArrayMatchingMode arrayMode, JJValueMatchingMode valueMode, bool compareValues, ComparisonBudget? budget,
-        ComparisonCache? cache = null)
+        ComparisonCache? cache = null, JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.Exact,
+        double fuzzyThreshold = ValueMatcher.DefaultFuzzyThreshold)
     {
-        var rules = new Rules(arrayMode, valueMode, compareValues, budget, cache ?? new ComparisonCache(arrayMode, valueMode, budget));
+        var rules = new Rules(arrayMode, valueMode, compareValues, budget, cache ?? new ComparisonCache(arrayMode, valueMode, budget, nameMode), fuzzyThreshold);
         var differences = new List<StructureDifference>();
         var matchedCount = Compare(left, right, new List<string?>(), differences, rules);
         return new StructureMatchResult(matchedCount, differences);
@@ -29,20 +31,30 @@ internal static class StructureMatcher
 
     private sealed class Rules
     {
-        internal Rules(JJArrayMatchingMode arrays, JJValueMatchingMode values, bool compareValues, ComparisonBudget? budget, ComparisonCache cache)
+        internal Rules(JJArrayMatchingMode arrays, JJValueMatchingMode values, bool compareValues, ComparisonBudget? budget, ComparisonCache cache, double fuzzyThreshold)
         {
             Arrays = arrays;
             Values = values;
             CompareValues = compareValues;
             Budget = budget;
             Cache = cache;
+            FuzzyThreshold = fuzzyThreshold;
         }
         internal JJArrayMatchingMode Arrays { get; }
         internal JJValueMatchingMode Values { get; }
         internal bool CompareValues { get; }
         internal ComparisonBudget? Budget { get; }
         internal ComparisonCache Cache { get; }
+        internal double FuzzyThreshold { get; }
     }
+
+    // The key under which a property name is paired: the name itself under Exact, and under Normalized the name
+    // trimmed and in NFC, to be compared ignoring case, exactly as Normalized compares string values.
+    internal static string NameKey(string name, JJPropertyNameMatchingMode mode) =>
+        mode == JJPropertyNameMatchingMode.Normalized ? ValueMatcher.Normalize(name) : name;
+
+    internal static StringComparer NameComparer(JJPropertyNameMatchingMode mode) =>
+        mode == JJPropertyNameMatchingMode.Normalized ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
     // Denominator for Dice: array shape mode counts one representative of each structural shape, recursively.
     internal static int CountNodes(JsonStructureNode node, JJArrayMatchingMode mode, ComparisonBudget budget, ComparisonCache cache)
@@ -92,7 +104,7 @@ internal static class StructureMatcher
             default:
                 // The cache keeps folded texts for the candidates of a group, which are compared once per candidate;
                 // a reported pair is compared once and would only fill it.
-                if (rules.CompareValues && !ValueMatcher.MatchValues(left, right, rules.Values, rules.Budget, differences is null ? rules.Cache : null))
+                if (rules.CompareValues && !ValueMatcher.MatchValues(left, right, rules.Values, rules.Budget, differences is null ? rules.Cache : null, rules.FuzzyThreshold))
                 {
                     differences?.Add(new StructureDifference(StructureMismatchType.ValueMismatch, FormatPath(path), left, right));
                     return 0;
@@ -105,8 +117,8 @@ internal static class StructureMatcher
     internal static JsonValueKind TypeOf(JsonStructureNode node) =>
         node.ValueKind == JsonValueKind.False ? JsonValueKind.True : node.ValueKind;
 
-    // Properties are paired by name in any order, and so are the properties sharing a name: see PairSameName.
-    // An unpaired subtree is one difference at its top.
+    // Properties are paired by name in any order, under the name rule, and so are the properties sharing a name:
+    // see PairSameName. An unpaired subtree is one difference at its top.
     private static int CompareProperties(
         JsonStructureNode left,
         JsonStructureNode right,
@@ -129,7 +141,7 @@ internal static class StructureMatcher
                 continue;
             }
 
-            path.Add(name.Key);
+            path.Add(left.Children[name.Value].PropertyName);
             PairSameName(left, leftNames.SameName(name.Value), right, rightNames.SameName(rightLast), partners, path, rules);
             path.RemoveAt(path.Count - 1);
         }
@@ -143,7 +155,7 @@ internal static class StructureMatcher
             var partner = partners[index];
             if (partner.Right < 0)
             {
-                var mismatchType = rightNames.Last.ContainsKey(property.PropertyName!)
+                var mismatchType = rightNames.Contains(property.PropertyName!)
                     ? StructureMismatchType.DuplicatePropertyCountMismatch
                     : StructureMismatchType.MissingProperty;
                 differences?.Add(new StructureDifference(mismatchType, FormatPath(path), property, null));
@@ -163,7 +175,7 @@ internal static class StructureMatcher
             if (!pairedRight[index])
             {
                 var property = right.Children[index];
-                var mismatchType = leftNames.Last.ContainsKey(property.PropertyName!)
+                var mismatchType = leftNames.Contains(property.PropertyName!)
                     ? StructureMismatchType.DuplicatePropertyCountMismatch
                     : StructureMismatchType.ExtraProperty;
                 path.Add(property.PropertyName);
@@ -177,23 +189,30 @@ internal static class StructureMatcher
 
     // The properties of an object by name: the index of the last property of each name, and for every property
     // the index of the previous one sharing its name, or -1. Built once per object compared, or once per group
-    // member. A name is declared once when its last property has no previous one.
+    // member. A name is declared once when its last property has no previous one. Names are keyed under the name
+    // rule, so under Normalized "name" and "Name" are one name.
     internal sealed class NameIndex
     {
-        internal NameIndex(JsonStructureNode node)
+        private readonly JJPropertyNameMatchingMode _mode;
+
+        internal NameIndex(JsonStructureNode node, JJPropertyNameMatchingMode mode)
         {
-            Last = new Dictionary<string, int>(node.Children.Count, StringComparer.Ordinal);
+            _mode = mode;
+            Last = new Dictionary<string, int>(node.Children.Count, NameComparer(mode));
             Previous = new int[node.Children.Count];
             for (var index = 0; index < node.Children.Count; index++)
             {
-                var name = node.Children[index].PropertyName!;
+                var name = NameKey(node.Children[index].PropertyName!, mode);
                 Previous[index] = Last.TryGetValue(name, out var previous) ? previous : -1;
                 Last[name] = index;
             }
         }
 
+        // Keyed by NameKey; the key kept is the spelling of the first property declared under it.
         internal Dictionary<string, int> Last { get; }
         internal int[] Previous { get; }
+
+        internal bool Contains(string name) => Last.ContainsKey(NameKey(name, _mode));
 
         // The indices of the properties sharing the name of the one at last, in document order.
         internal List<int> SameName(int last)
@@ -262,7 +281,7 @@ internal static class StructureMatcher
         var shapesOnly = rules.Arrays == JJArrayMatchingMode.StructureOnly;
         // Shape equivalence ignores all values below this array, so collapsing repeated shapes stays well-defined.
         if (shapesOnly && rules.CompareValues)
-            rules = new Rules(rules.Arrays, rules.Values, false, rules.Budget, rules.Cache);
+            rules = new Rules(rules.Arrays, rules.Values, false, rules.Budget, rules.Cache, rules.FuzzyThreshold);
         var leftShapes = shapesOnly ? DistinctShapes(left, rules.Cache) : left.Children.ToList();
         var rightShapes = shapesOnly ? DistinctShapes(right, rules.Cache) : right.Children.ToList();
 
@@ -573,7 +592,8 @@ internal static class StructureMatcher
     }
 
     // Two primitives of one type and two arrays can always be paired; two objects only when they share a property
-    // name, or are both empty. Nothing else is paired, so two nodes of the same shape can always be paired.
+    // name under the name rule, or are both empty. Nothing else is paired, so two nodes of the same shape can
+    // always be paired.
     private static bool CanPair(JsonStructureNode left, JsonStructureNode right, Rules rules)
     {
         if (TypeOf(left) != TypeOf(right))
@@ -583,11 +603,11 @@ internal static class StructureMatcher
 
         if (left.ValueKind != JsonValueKind.Object || (left.Children.Count == 0 && right.Children.Count == 0)) return true;
         // Charge and poll while scanning names; a quadratic Any/Any scan could evade the public work budget.
-        var names = rules.Cache.Names(left).Last;
+        var names = rules.Cache.Names(left);
         foreach (var property in right.Children)
         {
             rules.Budget?.Spend(1L + property.PropertyName!.Length);
-            if (names.ContainsKey(property.PropertyName!)) return true;
+            if (names.Contains(property.PropertyName!)) return true;
         }
         return false;
     }

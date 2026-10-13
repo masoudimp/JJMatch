@@ -852,6 +852,7 @@
     "emptyArray": [],
     "fuzzyAssignment": ["Jhon Smiht", "Jon Smith"],
     "nestedStringified": { "payload": "{\"a\":1}" },
-    "invalidText": "{"
+    "invalidText": "{",
+    "propertyNames": { "id": 1, "name": "Ali", "postalCode": "V6B", "café": true, "items": [{ "sku": "A" }, { "SKU": "B" }] }
   }
 }

@@ -12,16 +12,19 @@ internal static class ValueMatcher
     /// Returns whether the values of <paramref name="left"/> and <paramref name="right"/> are equal under <paramref name="mode"/>.
     /// Each flag of the mode is one rule, and the values are equal when any rule that is set holds;
     /// <see cref="JJValueMatchingMode.None"/> matches nothing. Neither node is changed. A cache keeps the
-    /// normalized and folded texts of a node across the many pairs of a group.
+    /// normalized and folded texts of a node across the many pairs of a group. The fuzzy threshold is the least
+    /// similarity <see cref="JJValueMatchingMode.Fuzzy"/> accepts, from 0 to 1; the parameter overrides every
+    /// other source of it, the public API passes <see cref="JJMatchSettings.FuzzyThreshold"/>, and omitting it
+    /// gives <see cref="DefaultFuzzyThreshold"/>.
     /// </summary>
     internal static bool MatchValues(JsonStructureNode left, JsonStructureNode right, JJValueMatchingMode mode,
-        ComparisonBudget? budget = null, ComparisonCache? cache = null)
+        ComparisonBudget? budget = null, ComparisonCache? cache = null, double fuzzyThreshold = DefaultFuzzyThreshold)
     {
         budget?.Spend(1L + (left.Value?.Length ?? 0) + (right.Value?.Length ?? 0));
         // Each further mode adds one clause here, so that a pair matches when any enabled rule accepts it.
         return ((mode & JJValueMatchingMode.Exact) != 0 && MatchExact(left, right))
             || ((mode & JJValueMatchingMode.Normalized) != 0 && MatchNormalized(left, right, cache))
-            || ((mode & JJValueMatchingMode.Fuzzy) != 0 && MatchFuzzy(left, right, budget, cache))
+            || ((mode & JJValueMatchingMode.Fuzzy) != 0 && MatchFuzzy(left, right, fuzzyThreshold, budget, cache))
             || ((mode & JJValueMatchingMode.Numeric) != 0 && MatchNumeric(left, right, budget));
     }
 
@@ -62,12 +65,12 @@ internal static class ValueMatcher
     private static string Normalized(JsonStructureNode node, ComparisonCache? cache) =>
         cache is null ? Normalize(node.Value!) : cache.Normalized(node);
 
-    // Two strings whose folded texts (normalized as Normalized does, then upper-cased) are a few edits apart: at
-    // most one edit for every five UTF-16 units of the longer text, so "Jon Smith" equals "John Smith" (one edit in
-    // ten units) and "Jon" does not equal "John" (one edit in four). An edit is an inserted, deleted or replaced
-    // unit, or two adjacent units swapped. Any other kind, and a string without a Value, never matches under this
-    // rule.
-    private static bool MatchFuzzy(JsonStructureNode left, JsonStructureNode right, ComparisonBudget? budget, ComparisonCache? cache)
+    // Two strings whose folded texts (normalized as Normalized does, then upper-cased) are a few edits apart: their
+    // similarity, one minus the edits per UTF-16 unit of the longer text, is at least the threshold. At the default
+    // 0.8 that is one edit for every five units, so "Jon Smith" equals "John Smith" (one edit in ten units) and
+    // "Jon" does not equal "John" (one edit in four). An edit is an inserted, deleted or replaced unit, or two
+    // adjacent units swapped. Any other kind, and a string without a Value, never matches under this rule.
+    private static bool MatchFuzzy(JsonStructureNode left, JsonStructureNode right, double threshold, ComparisonBudget? budget, ComparisonCache? cache)
     {
         if (left.ValueKind != JsonValueKind.String || right.ValueKind != JsonValueKind.String || left.Value is null || right.Value is null)
         {
@@ -75,7 +78,7 @@ internal static class ValueMatcher
         }
         var leftText = cache is null ? Fold(left.Value) : cache.Folded(left);
         var rightText = cache is null ? Fold(right.Value) : cache.Folded(right);
-        var allowed = Math.Max(leftText.Length, rightText.Length) / FuzzyUnitsPerEdit;
+        var allowed = AllowedEdits(Math.Max(leftText.Length, rightText.Length), threshold);
 
         // The lengths alone can rule the pair out: every unit of difference in length costs one edit. Equal folded
         // texts are zero edits apart, so no table is needed for them either.
@@ -85,8 +88,14 @@ internal static class ValueMatcher
         return Distance(leftText, rightText, allowed, budget, cache) <= allowed;
     }
 
-    // One edit is allowed for every this many units of the longer text: a similarity of at least 0.8.
-    private const int FuzzyUnitsPerEdit = 5;
+    /// <summary>The least similarity <see cref="JJValueMatchingMode.Fuzzy"/> accepts unless told otherwise: one edit for every five units of the longer text.</summary>
+    internal const double DefaultFuzzyThreshold = 0.8;
+
+    // The most edits a text of the given length tolerates: the units it may lose before fewer than threshold × length
+    // remain. The units that must remain are rounded up, so that a threshold written in decimal (0.8, 0.75) keeps
+    // its exact boundary: 0.8 × 5 is 4 units kept and one edit allowed, although 1 − 0.8 is below 0.2 in binary.
+    private static int AllowedEdits(int length, double threshold) =>
+        length - (int)Math.Ceiling(threshold * length);
 
     // The text Fuzzy compares: Normalize, then invariant upper case. Casing can map supplementary code points;
     // distance is measured in UTF-16 units of the resulting text, independently of the current culture.
@@ -123,7 +132,8 @@ internal static class ValueMatcher
             var last = Math.Min(right.Length, row + bound);
             current[first - 1] = first == 1 ? Math.Min(row, above) : above;
             if (last < right.Length) current[last + 1] = above;
-            var smallest = above;
+            // Column zero counts too: against the empty text the band holds no other cell, and the row is its value.
+            var smallest = current[first - 1];
             for (var column = first; column <= last; column++)
             {
                 var cost = left[row - 1] == right[column - 1] ? 0 : 1;

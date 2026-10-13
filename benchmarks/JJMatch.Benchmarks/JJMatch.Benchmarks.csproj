@@ -18,6 +18,7 @@
     <Compile Include="..\..\src\JJMatch\Internal\Matching\**\*.cs" LinkBase="Matching" />
     <Compile Include="..\..\src\JJMatch\Options\JJArrayMatchingMode.cs" LinkBase="Options" />
     <Compile Include="..\..\src\JJMatch\Options\JJMatchSettings.cs" LinkBase="Options" />
+    <Compile Include="..\..\src\JJMatch\Options\JJPropertyNameMatchingMode.cs" LinkBase="Options" />
     <!-- ValueMatcher takes the public mode enum. -->
     <Compile Include="..\..\src\JJMatch\Options\JJValueMatchingMode.cs" LinkBase="Options" />
     <!-- The public facade, for the end-to-end benchmarks. -->

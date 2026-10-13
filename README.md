@@ -22,19 +22,21 @@ foreach (var difference in result.Differences)
 // $.age: ValueMismatch
 ```
 
-Start with the **[consumer guide](Guide.md)** for installation, complete examples, options, arrays, nested JSON, and expected error behavior. Then see **[Examples.md](Examples.md)**: every implemented behavior, from arrays and value rules to duplicates, Unicode, stringified input and limits, run on the same fixture sections under every configuration, with the exact scores and differences the library returns.
+**Try it in the browser:** the [JJMatch Playground](https://masoudimp.github.io/JJMatch/) runs the library on your own JSON, lets you switch every setting, and shows the equivalent `JJMatcher.Match` call and `JJSetting.json`.
+
+**Read the [guide](Guide.md)** for the settings, how the score is computed, and what each difference means.
 
 ## Behavior
 
 - Exact values and ordered, count-preserving arrays by default. Object property order and JSON formatting are ignored.
-- Optional unordered arrays, structural shape comparison, and Exact, Normalized, Numeric or Fuzzy value rules.
+- Optional unordered arrays, structural shape comparison, Exact, Normalized, Numeric or Fuzzy value rules with a configurable fuzzy similarity threshold, and a Normalized property name rule that pairs `name` with `Name`.
 - Read-only differences with paths and detached JSON snapshots, including original array indices and duplicate-property occurrences.
-- Deterministic, symmetric Sørensen–Dice node similarity from 0 to 100. `IsMatch` is true exactly when `Score` is 100 and `Differences` is empty. Containers earn structural credit; the score is not a probability or domain-specific accuracy measure. See [scoring semantics and research](Docs/Scoring.md).
+- Deterministic, symmetric Sørensen–Dice node similarity from 0 to 100. `IsMatch` is true exactly when `Score` is 100 and `Differences` is empty. See [scoring](Docs/Scoring.md).
 - Automatic decoding of a stringified JSON object or array root, cancellation and configurable resource limits. Invalid options and settings throw rather than being silently ignored.
 
 Useful for comparing expected and actual API responses, test data, or structured LLM output. Similar JSON does not necessarily mean a factually correct answer.
 
-The package targets **netstandard2.0 and net8.0**. Tests exercise both shipped assemblies on .NET 8 and .NET 10. CI is configured for Windows, macOS and Linux. Other compatible runtimes, trimming and Native AOT require separate validation.
+The package targets **netstandard2.0 and net8.0**. Tests run on .NET 8 and .NET 10; CI covers Windows, macOS and Linux.
 
 ## Development
 
@@ -44,7 +46,7 @@ dotnet test tests/JJMatch.Tests -c Release
 dotnet pack src/JJMatch -c Release
 ```
 
-Install both .NET 8 and .NET 10 runtimes to run both test targets. Benchmarks live in `benchmarks/JJMatch.Benchmarks`; recorded measurements are under `benchmarks/results`. They measure internal components and, with `--filter "*JJMatcher*"`, the public `Match` call end to end over the fixtures and generated documents.
+Install both .NET 8 and .NET 10 runtimes to run both test targets. Benchmarks live in `benchmarks/JJMatch.Benchmarks`, with recorded measurements under `benchmarks/results`. The playground source is in `samples/JJMatch.Playground`.
 
 Design details: [decisions](Docs/Decisions.md), [matching](Docs/Match.md), [value rules](Docs/MatchValues.md), and the [historical technical review](Docs/TechnicalReview.md).
 
