@@ -20,7 +20,7 @@ Every JSON value is one node, including the root and every object/array containe
 
 Primitive nodes earn one pair when a selected value rule accepts them, otherwise zero. StructuralMatching alone instead accepts primitives of the same structural type, with true and false belonging to one Boolean type. There is no fractional credit inside a fuzzy value: it is either accepted or rejected. Property names are compared exactly unless `PropertyNameMode` is `Normalized`, which pairs names that differ only in case, outer white space or Unicode form; either way a name earns no point of its own.
 
-Roots must correspond to roots. Descendants can correspond only within paired containers, and traversal stops below a type mismatch. Object properties pair only with the same name under the property name rule, regardless of order. Repeated names are retained and assigned one-to-one. Strict arrays pair by position; Unordered arrays assign occurrences one-to-one across the entire array, with duplicates counted separately. Unordered candidates can have different types, yielding zero shared nodes for that pair and a type difference.
+Roots must correspond to roots. Descendants can correspond only within paired containers, and traversal stops below a type mismatch. Object properties pair only with the same name under the property name rule, regardless of order. Repeated names are retained and assigned one-to-one. Strict arrays assign occurrences one-to-one across the entire array, wherever the elements stand, with duplicates counted separately. Candidates can have different types, yielding zero shared nodes for that pair and a type difference.
 
 StructureOnly arrays first collapse structurally identical element shapes recursively. One representative of each shape contributes to `L`, `R` and `M`. Values throughout those array subtrees are ignored, even if value matching is otherwise enabled. Two shapes are eligible to pair when they are primitives of one structural type, two arrays, or objects sharing a property name (or both empty). Values outside arrays still use the selected value rules. The denominator uses exactly the same shape reduction as comparison.
 
@@ -37,9 +37,8 @@ The denominator and maximum correspondence size are unchanged on swapping inputs
 | Inputs and policy | L | R | M | Score |
 | --- | ---: | ---: | ---: | ---: |
 | `{"name":"Ann","age":30}` vs age 31, default | 3 | 3 | 2 | 66.666… |
-| `[1,2,3]` vs `[3,2,1]`, Strict | 4 | 4 | 2 | 50 |
-| Same arrays, Unordered | 4 | 4 | 4 | 100 |
-| `[1,2]` vs `[1,2,3]`, Strict or Unordered | 3 | 4 | 3 | 85.714… |
+| `[1,2,3]` vs `[3,2,1]`, Strict | 4 | 4 | 4 | 100 |
+| `[1,2]` vs `[1,2,3]`, Strict | 3 | 4 | 3 | 85.714… |
 | `{"a":1}` vs `{"b":2}`, default | 2 | 2 | 1 | 50 (shared object container) |
 | `1` vs `2`, default | 1 | 1 | 0 | 0 |
 | `[]` vs `{}`, any policy | 1 | 1 | 0 | 0 |
@@ -70,9 +69,9 @@ Score = 100 × 2 × MaxWeight × M / (2 × MaxWeight × M + Σ over differences 
 | `[1,2]` vs `[1,2,3]` | 85.714… | `6000 / 63` = 95.238… | one added node, `3` against `60` |
 | `[1,2,3]` vs `[1,2]` | 85.714… | `6000 / 68` = 88.235… | one missing node, `8` against `60` |
 | `[]` vs `{}` | 0 | 0 | `2 × 10 = 20` against `0` |
-| `publicApi.nested` fixtures (city, two tags, `old`, `nullable` and the added array `[1]`) | 37.5 | `6000 / 118` = 50.847… | `3 × 2 × 6 + 2 × 8 + 2 × 3 = 58` against `60` |
-| Same fixtures with `AddedWeight = 10` | 37.5 | `6000 / 132` = 45.454… | the added array weighs its two nodes: `36 + 16 + 20` |
-| Guide pair, Strict, default values | 50 | `20000 / 319` = 62.695… | `9 × 2 × 6 + 8 + 3 = 119` against `200` |
+| `publicApi.nested` fixtures (city, `old`, `nullable` and the added array `[1]`) | 62.5 | `10000 / 134` = 74.626… | `2 × 6 + 2 × 8 + 2 × 3 = 34` against `100` |
+| Same fixtures with `AddedWeight = 10` | 62.5 | `10000 / 148` = 67.567… | the added array weighs its two nodes: `12 + 16 + 20` |
+| Guide pair, Strict, default values | 70 | `28000 / 351` = 79.772… | `5 × 2 × 6 + 8 + 3 = 71` against `280` |
 
 ## Limits of interpretation
 
@@ -82,6 +81,6 @@ Fuzzy acceptance is nontransitive. The score is not a probability, semantic trut
 
 Normalized and Fuzzy relax only strings and Numeric only numbers. Identical primitives of every kind match under any selection, `None` included, so a document always matches itself. `None`, the default, accepts identical values only.
 
-Resource limits fail the operation instead of returning an approximation. Cancellation is cooperative and the work budget is an implementation allowance, not a time or memory guarantee. Parsing and individual runtime operations such as Unicode normalization or cloning a snapshot are bounded by input limits but cannot be interrupted midway. Unordered arrays and repeated names are more expensive than positional arrays; groups are capped before allocating assignment matrices. The public depth and node caps bound recursion and integer score arithmetic. Internal legacy calls without a budget retain their previous unrestricted behavior.
+Resource limits fail the operation instead of returning an approximation. Cancellation is cooperative and the work budget is an implementation allowance, not a time or memory guarantee. Parsing and individual runtime operations such as Unicode normalization or cloning a snapshot are bounded by input limits but cannot be interrupted midway. Arrays and repeated names are assigned as groups, which costs one comparison per candidate pair; groups are capped at `MaxAssignmentSize` before allocating assignment matrices, so a Strict array longer than the cap fails the operation. The public depth and node caps bound recursion and integer score arithmetic. Internal legacy calls without a budget retain their previous unrestricted behavior.
 
 `StructuralMatchPercentage` recomputes structure-only similarity under the same array policy and scoring mode. `ValueMatchPercentage` is the main value-aware document Score, including required structural context; it is not a separate component to average with the structural score. These diagnostic properties do not change the three-output contract.

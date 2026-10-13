@@ -17,6 +17,32 @@
     border-radius: var(--bs-card-inner-border-radius);
 }
 
+.tip {
+    cursor: help;
+}
+
+/* Positioned against the settings section, so it stays inside the column whatever the icon's place in it. */
+.tip-body {
+    display: none;
+    left: 1rem;
+    margin-top: 0.25rem;
+    max-width: 22rem;
+    position: absolute;
+    right: 1rem;
+    z-index: 10;
+}
+
+.tip:hover .tip-body,
+.tip:focus .tip-body {
+    display: flex;
+}
+
+.tip-json {
+    color: inherit;
+    display: block;
+    white-space: pre;
+}
+
 .snippet {
     font-size: 0.85rem;
     overflow-x: auto;

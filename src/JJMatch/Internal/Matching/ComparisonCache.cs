@@ -24,7 +24,7 @@ internal sealed class ComparisonCache
     private int _unique;
 
     internal ComparisonCache(JJArrayMatchingMode arrays, ComparisonBudget? budget,
-        JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.Exact)
+        JJPropertyNameMatchingMode nameMode = JJPropertyNameMatchingMode.None)
     {
         _arrays = arrays;
         _nameMode = nameMode;
@@ -190,8 +190,8 @@ internal sealed class ComparisonCache
         return entry;
     }
 
-    // Strict keeps the element order; Unordered sorts the identities, keeping repeats; StructureOnly keeps one of
-    // each shape, ignores values below the array, and counts each distinct shape once.
+    // Element order plays no part: Strict sorts the identities, keeping repeats; StructureOnly keeps one of each
+    // shape, ignores values below the array, and counts each distinct shape once.
     private Entry IndexArray(JsonStructureNode node, bool shapesOnly)
     {
         var count = node.Children.Count;
@@ -229,11 +229,8 @@ internal sealed class ComparisonCache
             return new Entry { Shape = identity, Valued = identity, Size = size };
         }
 
-        if (_arrays == JJArrayMatchingMode.Unordered)
-        {
-            Array.Sort(shapes, 1, count);
-            if (!shapesOnly) Array.Sort(valued, 1, count);
-        }
+        Array.Sort(shapes, 1, count);
+        if (!shapesOnly) Array.Sort(valued, 1, count);
         var shapeIdentity = Intern(shapes);
         return new Entry { Shape = shapeIdentity, Valued = shapesOnly ? shapeIdentity : Intern(valued), Size = size };
     }
