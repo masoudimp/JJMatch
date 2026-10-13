@@ -9,9 +9,13 @@ namespace JJMatch;
 /// <para>
 /// Under <see cref="JJScoringMode.Weighted"/> every matched node weighs <see cref="MaxWeight"/> on each side, and every
 /// unmatched node weighs the weight of the difference reported above it: a missing or added subtree weighs its node
-/// count times the Missing or Added weight, a type mismatch weighs the nodes of both subtrees, and a value mismatch
-/// weighs the two primitives. Each unmatched node lies under exactly one difference, so nothing is counted twice. The
-/// score is <c>100 × 2 × MaxWeight × matched / (2 × MaxWeight × matched + weighted unmatched nodes)</c>.
+/// count times the Missing or Added weight, a type mismatch weighs the nodes of both subtrees, a value mismatch
+/// weighs the two primitives, a property whose name only differs weighs the nodes of both properties at
+/// <see cref="PropertyNameCaseMismatchWeight"/> instead of a full Missing and a full Added, and a string value that
+/// only differs in case, outer white space or Unicode form weighs the two primitives at
+/// <see cref="ValueCaseMismatchWeight"/> instead of the full <see cref="ValueMismatchWeight"/>. Each unmatched node
+/// lies under exactly one difference, so nothing is counted twice. The score is
+/// <c>100 × 2 × MaxWeight × matched / (2 × MaxWeight × matched + weighted unmatched nodes)</c>.
 /// </para>
 /// <para>
 /// A weight of <see cref="MaxWeight"/> makes a lost node count exactly as it does under Standard scoring, and a lower
@@ -42,11 +46,19 @@ public sealed class JJScoringSettings
     /// <summary>Weight of each of the two primitives of a <see cref="JJDifferenceKind.ValueMismatch"/>, from 1 to 10. Defaults to 6: the shape holds, the content does not.</summary>
     public int ValueMismatchWeight { get; set; } = 6;
 
+    /// <summary>Weight of each of the two properties of a <see cref="JJDifferenceKind.PropertyNameCaseMismatch"/>, from 1 to 10. Defaults to 4: the content is still there, only its name's spelling differs.</summary>
+    public int PropertyNameCaseMismatchWeight { get; set; } = 4;
+
+    /// <summary>Weight of each of the two primitives of a <see cref="JJDifferenceKind.ValueCaseMismatch"/>, from 1 to 10. Defaults to 4: the content is still there, only its spelling's case, outer white space or Unicode form differs.</summary>
+    public int ValueCaseMismatchWeight { get; set; } = 4;
+
     internal int Weight(JJDifferenceKind kind) => kind switch
     {
         JJDifferenceKind.Missing => MissingWeight,
         JJDifferenceKind.Added => AddedWeight,
         JJDifferenceKind.TypeMismatch => TypeMismatchWeight,
+        JJDifferenceKind.PropertyNameCaseMismatch => PropertyNameCaseMismatchWeight,
+        JJDifferenceKind.ValueCaseMismatch => ValueCaseMismatchWeight,
         _ => ValueMismatchWeight
     };
 
@@ -62,6 +74,8 @@ public sealed class JJScoringSettings
         if (copy.AddedWeight < MinWeight || copy.AddedWeight > MaxWeight) throw new ArgumentOutOfRangeException(nameof(AddedWeight));
         if (copy.TypeMismatchWeight < MinWeight || copy.TypeMismatchWeight > MaxWeight) throw new ArgumentOutOfRangeException(nameof(TypeMismatchWeight));
         if (copy.ValueMismatchWeight < MinWeight || copy.ValueMismatchWeight > MaxWeight) throw new ArgumentOutOfRangeException(nameof(ValueMismatchWeight));
+        if (copy.PropertyNameCaseMismatchWeight < MinWeight || copy.PropertyNameCaseMismatchWeight > MaxWeight) throw new ArgumentOutOfRangeException(nameof(PropertyNameCaseMismatchWeight));
+        if (copy.ValueCaseMismatchWeight < MinWeight || copy.ValueCaseMismatchWeight > MaxWeight) throw new ArgumentOutOfRangeException(nameof(ValueCaseMismatchWeight));
         return copy;
     }
 }

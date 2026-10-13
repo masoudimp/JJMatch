@@ -54,8 +54,9 @@ internal static class ValueMatcher
 
     // Two strings whose normalized texts are equal ignoring case, by the invariant simple case mapping of
     // OrdinalIgnoreCase, so the current culture plays no part. Any other kind, and a string without a Value, never
-    // matches under this rule.
-    private static bool MatchNormalized(JsonStructureNode left, JsonStructureNode right, ComparisonCache? cache) =>
+    // matches under this rule. Also used, regardless of the configured value mode, to recognize a failed value
+    // comparison as a lighter ValueCaseMismatch.
+    internal static bool MatchNormalized(JsonStructureNode left, JsonStructureNode right, ComparisonCache? cache) =>
         left.ValueKind == JsonValueKind.String
         && right.ValueKind == JsonValueKind.String
         && left.Value is not null

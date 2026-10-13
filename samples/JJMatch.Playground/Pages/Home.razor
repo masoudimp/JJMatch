@@ -124,35 +124,45 @@
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="radio" name="scoring" id="scoring-standard" checked="@(scoringMode == JJScoringMode.Standard)" @onchange="() => scoringMode = JJScoringMode.Standard" />
                     <label class="form-check-label" for="scoring-standard">Standard <span class="small text-body-secondary">every difference counts fully</span></label>
-                    @Tip(StandardTip)
+                    @ScoreTip(StandardTipText)
                 </div>
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="radio" name="scoring" id="scoring-weighted" checked="@(scoringMode == JJScoringMode.Weighted)" @onchange="() => scoringMode = JJScoringMode.Weighted" />
                     <label class="form-check-label" for="scoring-weighted">Weighted <span class="small text-body-secondary">each kind of difference counts by its weight</span></label>
-                    @Tip(WeightedTip)
+                    @ScoreTip(WeightedTipText)
                 </div>
             </fieldset>
 
             <div class="row g-3">
                 <div class="col-auto">
                     <label class="form-label fw-semibold mb-1" for="weight-missing">MissingWeight</label>
-                    @Tip(MissingWeightTip)
+                    @ScoreTip(MissingWeightTipText)
                     <input class="form-control form-control-sm number-input" type="number" id="weight-missing" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="missingWeight" />
                 </div>
                 <div class="col-auto">
                     <label class="form-label fw-semibold mb-1" for="weight-added">AddedWeight</label>
-                    @Tip(AddedWeightTip)
+                    @ScoreTip(AddedWeightTipText)
                     <input class="form-control form-control-sm number-input" type="number" id="weight-added" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="addedWeight" />
                 </div>
                 <div class="col-auto">
                     <label class="form-label fw-semibold mb-1" for="weight-type">TypeMismatchWeight</label>
-                    @Tip(TypeMismatchWeightTip)
+                    @ScoreTip(TypeMismatchWeightTipText)
                     <input class="form-control form-control-sm number-input" type="number" id="weight-type" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="typeMismatchWeight" />
                 </div>
                 <div class="col-auto">
                     <label class="form-label fw-semibold mb-1" for="weight-value">ValueMismatchWeight</label>
-                    @Tip(ValueMismatchWeightTip)
+                    @ScoreTip(ValueMismatchWeightTipText)
                     <input class="form-control form-control-sm number-input" type="number" id="weight-value" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="valueMismatchWeight" />
+                </div>
+                <div class="col-auto">
+                    <label class="form-label fw-semibold mb-1" for="weight-name-case">PropertyNameCaseMismatchWeight</label>
+                    @ScoreTip(PropertyNameCaseMismatchWeightTipText)
+                    <input class="form-control form-control-sm number-input" type="number" id="weight-name-case" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="propertyNameCaseMismatchWeight" />
+                </div>
+                <div class="col-auto">
+                    <label class="form-label fw-semibold mb-1" for="weight-value-case">ValueCaseMismatchWeight</label>
+                    @ScoreTip(ValueCaseMismatchWeightTipText)
+                    <input class="form-control form-control-sm number-input" type="number" id="weight-value-case" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="valueCaseMismatchWeight" />
                 </div>
             </div>
             <div class="form-text">@JJScoringSettings.MinWeight (least important) to @JJScoringSettings.MaxWeight (the Standard cost). Used only when Weighted is selected.</div>
@@ -182,7 +192,7 @@
 </div>
 </details>
 
-<button class="btn btn-primary mb-3" @onclick="Compare">Compare</button>
+<button class="btn btn-primary mb-3 compare-btn" @onclick="Compare">Compare</button>
 
 @if (error is not null)
 {
@@ -281,36 +291,76 @@ else if (result is not null)
     private int addedWeight = new JJScoringSettings().AddedWeight;
     private int typeMismatchWeight = new JJScoringSettings().TypeMismatchWeight;
     private int valueMismatchWeight = new JJScoringSettings().ValueMismatchWeight;
+    private int propertyNameCaseMismatchWeight = new JJScoringSettings().PropertyNameCaseMismatchWeight;
+    private int valueCaseMismatchWeight = new JJScoringSettings().ValueCaseMismatchWeight;
 
-    // One tooltip per setting: what it does, then one pair of documents and whether that setting
-    // accepts or rejects them. Scoring settings never change that verdict, so their tooltips carry none.
-    private static readonly (string Text, string Left, string Right, string Verdict)
-        StructuralTip = ("When active, property names, JSON types and nesting are compared. Selected alone, values are ignored.", Object("\"age\": 30"), Object("\"age\": 31"), "Accepted"),
-        ValueTip = ("When active, primitive values are compared, using the Values rules.", Object("\"age\": 30"), Object("\"age\": 31"), "Rejected"),
-        MaxDepthTip = ("The deepest nesting of objects and arrays a document may have. Deeper input is rejected. At 1:", Object("\"user\": { \"age\": 30 }"), Object("\"user\": { \"age\": 30 }"), "Rejected"),
-        StrictTip = ("When active, array elements may be in any order, but each must occur the same number of times.", "[1, 2, 3]", "[3, 2, 1]", "Accepted"),
-        StructureOnlyTip = ("When active, only the shapes of array elements are compared. Count and values are ignored.", "[1, 2, 3]", "[9]", "Accepted"),
-        NormalizedNamesTip = ("When active, property names match ignoring case, outer white space and Unicode form.", Object("\"age\": 30"), Object("\" Age \": 30"), "Accepted"),
-        NormalizedTip = ("When active, strings match ignoring case, outer white space and Unicode form.", Object("\"city\": \"New York\""), Object("\"city\": \" new york \""), "Accepted"),
-        FuzzyTip = ("When active, strings match when they are similar enough, tolerating typos.", Object("\"name\": \"John Smith\""), Object("\"name\": \"Jon Smith\""), "Accepted"),
-        NumericTip = ("When active, numbers match as quantities, however they are written.", Object("\"age\": 30"), Object("\"age\": 30.0"), "Accepted"),
-        StandardTip = ("When active, every difference lowers the score fully, whatever its kind.", Object("\"age\": 30,\n  \"name\": \"Ann\""), Object("\"age\": 30"), ""),
-        WeightedTip = ("When active, each kind of difference lowers the score by its weight.", Object("\"age\": 30,\n  \"name\": \"Ann\""), Object("\"age\": 30"), ""),
-        MissingWeightTip = ("How much content missing from the response lowers the Weighted score. At 8:", Object("\"age\": 30,\n  \"name\": \"Ann\""), Object("\"age\": 30"), ""),
-        AddedWeightTip = ("How much content only the response has lowers the Weighted score. At 3:", Object("\"age\": 30"), Object("\"age\": 30,\n  \"name\": \"Ann\""), ""),
-        TypeMismatchWeightTip = ("How much a value of another JSON type lowers the Weighted score. At 10:", Object("\"age\": 30"), Object("\"age\": \"30\""), ""),
-        ValueMismatchWeightTip = ("How much a different value of the same type lowers the Weighted score. At 6:", Object("\"age\": 30"), Object("\"age\": 31"), "");
+    // One tooltip per setting: what it does, then two pairs of documents showing both outcomes.
+    private static readonly (string Text, (string Left, string Right, string Verdict) A, (string Left, string Right, string Verdict) B)
+        StructuralTip = ("When active, property names, JSON types and nesting are compared. Selected alone, values are ignored.",
+            (Object("\"age\": 30"), Object("\"age\": 31"), "Accepted"),
+            (Object("\"age\": 30"), Object("\"age\": \"30\""), "Rejected")),
+        ValueTip = ("When active, primitive values are compared, using the Values rules.",
+            (Object("\"age\": 30"), Object("\"age\": 30"), "Accepted"),
+            (Object("\"age\": 30"), Object("\"age\": 31"), "Rejected")),
+        MaxDepthTip = ("The deepest nesting of objects and arrays a document may have. Deeper input is rejected. At 1:",
+            (Object("\"age\": 30"), Object("\"age\": 30"), "Accepted"),
+            (Object("\"user\": { \"age\": 30 }"), Object("\"user\": { \"age\": 30 }"), "Rejected")),
+        StrictTip = ("When active, array elements may be in any order, but each must occur the same number of times.",
+            ("[1, 2, 3]", "[3, 2, 1]", "Accepted"),
+            ("[1, 2, 3]", "[1, 2, 2]", "Rejected")),
+        StructureOnlyTip = ("When active, only the shapes of array elements are compared. Count and values are ignored.",
+            ("[1, 2, 3]", "[9]", "Accepted"),
+            ("[1, 2, 3]", "[{ \"a\": 1 }]", "Rejected")),
+        NormalizedNamesTip = ("When active, property names match ignoring case, outer white space and Unicode form.",
+            (Object("\"age\": 30"), Object("\" Age \": 30"), "Accepted"),
+            (Object("\"age\": 30"), Object("\"ag_e\": 30"), "Rejected")),
+        NormalizedTip = ("When active, strings match ignoring case, outer white space and Unicode form.",
+            (Object("\"city\": \"New York\""), Object("\"city\": \" new york \""), "Accepted"),
+            (Object("\"city\": \"New York\""), Object("\"city\": \"Boston\""), "Rejected")),
+        FuzzyTip = ("When active, strings match when they are similar enough, tolerating typos.",
+            (Object("\"name\": \"John Smith\""), Object("\"name\": \"Jon Smith\""), "Accepted"),
+            (Object("\"name\": \"John Smith\""), Object("\"name\": \"Totally Different\""), "Rejected")),
+        NumericTip = ("When active, numbers match as quantities, however they are written.",
+            (Object("\"age\": 30"), Object("\"age\": 30.0"), "Accepted"),
+            (Object("\"age\": 30"), Object("\"age\": 31"), "Rejected"));
 
-    // "John" vs "Jon" (one edit) and "John" vs "Mary" (four edits) are fixed examples, so only
-    // the allowed-edits side of each comparison moves as fuzzyThreshold changes, matching
-    // ValueMatcher's own length - Ceiling(threshold * length) rule (see src/JJMatch/Internal/Matching/ValueMatcher.cs).
+    // All scoring tips share one example pair and show the score it actually gets under the
+    // current settings, rather than a fixed Accepted/Rejected verdict.
+    private static readonly string ScoringExampleLeft = Object("\"name\": \"jhn\",\n  \"age\": 30,\n  \"city\": \"vancouver\"");
+    private static readonly string ScoringExampleRight = Object("\"name\": \"John\",\n  \"age\": 30,\n  \"city\": \"Vancouver\"");
+
+    private const string StandardTipText = "When active, every difference lowers the score fully, whatever its kind.";
+    private const string WeightedTipText = "When active, each kind of difference lowers the score by its weight.";
+
+    private string MissingWeightTipText =>
+        $"How much content missing from the response lowers the Weighted score. At {missingWeight}:";
+
+    private string AddedWeightTipText =>
+        $"How much content only the response has lowers the Weighted score. At {addedWeight}:";
+
+    private string TypeMismatchWeightTipText =>
+        $"How much a value of another JSON type lowers the Weighted score. At {typeMismatchWeight}:";
+
+    private string ValueMismatchWeightTipText =>
+        $"How much a different value of the same type lowers the Weighted score. At {valueMismatchWeight}:";
+
+    private string PropertyNameCaseMismatchWeightTipText =>
+        $"How much a property name differing only in case lowers the Weighted score. At {propertyNameCaseMismatchWeight}:";
+
+    private string ValueCaseMismatchWeightTipText =>
+        $"How much a string value differing only in case, outer white space or Unicode form lowers the Weighted score. At {valueCaseMismatchWeight}:";
+
+    // "Incorporation" vs "Incorparation" (one edit) and "Incorporation" vs "Subsidiary" (twelve
+    // edits) are fixed examples, so only the allowed-edits side of each comparison moves as
+    // fuzzyThreshold changes, matching ValueMatcher's own length - Ceiling(threshold * length)
+    // rule (see src/JJMatch/Internal/Matching/ValueMatcher.cs).
     private (string Text, (string Left, string Right, string Verdict) Close, (string Left, string Right, string Verdict) Far) FuzzyThresholdTip
     {
         get
         {
-            const int length = 4; // "John".Length, the longer of the example strings
-            const int closeDistance = 1; // edits from "John" to "Jon"
-            const int farDistance = 4; // edits from "John" to "Mary"
+            const int length = 13; // "Incorporation".Length, the longer of the example strings
+            const int closeDistance = 1; // edits from "Incorporation" to "Incorparation"
+            const int farDistance = 12; // edits from "Incorporation" to "Subsidiary"
             var thresholdText = fuzzyThreshold.ToString("0.##", CultureInfo.InvariantCulture);
             var allowedEdits = length - (int)Math.Ceiling(fuzzyThreshold * length);
             var charsPerEdit = fuzzyThreshold >= 1
@@ -318,36 +368,42 @@ else if (result is not null)
                 : (1 / (1 - fuzzyThreshold)).ToString("0.#", CultureInfo.InvariantCulture);
             return (
                 $"The least similarity Fuzzy accepts: {thresholdText} allows one edit for every {charsPerEdit} characters. At {thresholdText}:",
-                (Object("\"name\": \"John\""), Object("\"name\": \"Jon\""), closeDistance <= allowedEdits ? "Accepted" : "Rejected"),
-                (Object("\"name\": \"John\""), Object("\"name\": \"Mary\""), farDistance <= allowedEdits ? "Accepted" : "Rejected"));
+                (Object("\"name\": \"Incorporation\""), Object("\"name\": \"Incorparation\""), closeDistance <= allowedEdits ? "Accepted" : "Rejected"),
+                (Object("\"name\": \"Incorporation\""), Object("\"name\": \"Subsidiary\""), farDistance <= allowedEdits ? "Accepted" : "Rejected"));
         }
     }
 
     private static string Object(string properties) => "{\n  " + properties + "\n}";
 
-    private RenderFragment Tip((string Text, string Left, string Right, string Verdict) tip) => @<span class="tip" tabindex="0">
+    private RenderFragment ScoreTip(string text) => @<span class="tip" tabindex="0">
         <span class="badge rounded-pill text-bg-secondary">?</span>
         <span class="tip-body card shadow p-2 small" role="tooltip">
-            <span class="d-block mb-2">@tip.Text</span>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.Left</code>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.Right</code>
-            @if (tip.Verdict != "")
-            {
-                <span class="badge align-self-start @(tip.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.Verdict</span>
-            }
+            <span class="d-block mb-2">@text</span>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@ScoringExampleLeft</code>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@ScoringExampleRight</code>
+            <span class="badge align-self-start text-bg-primary">Score: @ScoringExampleScore</span>
         </span>
     </span>;
 
-    private RenderFragment Tip((string Text, (string Left, string Right, string Verdict) Active, (string Left, string Right, string Verdict) NotActive) tip) => @<span class="tip" tabindex="0">
+    private string ScoringExampleScore =>
+        Percent(JJMatcher.Match(ScoringExampleLeft, ScoringExampleRight, Options(), Settings()).Score);
+
+    private RenderFragment Tip((string Text, (string Left, string Right, string Verdict) A, (string Left, string Right, string Verdict) B) tip) => @<span class="tip" tabindex="0">
         <span class="badge rounded-pill text-bg-secondary">?</span>
         <span class="tip-body card shadow p-2 small" role="tooltip">
             <span class="d-block mb-2">@tip.Text</span>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.Active.Left</code>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.Active.Right</code>
-            <span class="badge align-self-start mb-2 @(tip.Active.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.Active.Verdict</span>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.NotActive.Left</code>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.NotActive.Right</code>
-            <span class="badge align-self-start @(tip.NotActive.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.NotActive.Verdict</span>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.A.Left</code>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.A.Right</code>
+            @if (tip.A.Verdict != "")
+            {
+                <span class="badge align-self-start mb-2 @(tip.A.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.A.Verdict</span>
+            }
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.B.Left</code>
+            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.B.Right</code>
+            @if (tip.B.Verdict != "")
+            {
+                <span class="badge align-self-start @(tip.B.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.B.Verdict</span>
+            }
         </span>
     </span>;
 
@@ -393,7 +449,9 @@ else if (result is not null)
                 MissingWeight = missingWeight,
                 AddedWeight = addedWeight,
                 TypeMismatchWeight = typeMismatchWeight,
-                ValueMismatchWeight = valueMismatchWeight
+                ValueMismatchWeight = valueMismatchWeight,
+                PropertyNameCaseMismatchWeight = propertyNameCaseMismatchWeight,
+                ValueCaseMismatchWeight = valueCaseMismatchWeight
             }
         };
     }
@@ -430,7 +488,9 @@ else if (result is not null)
                     MissingWeight = {{Number(settings.Scoring.MissingWeight)}},
                     AddedWeight = {{Number(settings.Scoring.AddedWeight)}},
                     TypeMismatchWeight = {{Number(settings.Scoring.TypeMismatchWeight)}},
-                    ValueMismatchWeight = {{Number(settings.Scoring.ValueMismatchWeight)}}
+                    ValueMismatchWeight = {{Number(settings.Scoring.ValueMismatchWeight)}},
+                    PropertyNameCaseMismatchWeight = {{Number(settings.Scoring.PropertyNameCaseMismatchWeight)}},
+                    ValueCaseMismatchWeight = {{Number(settings.Scoring.ValueCaseMismatchWeight)}}
                 }
             };
             {{varKeyword}} result = {{Type(nameof(JJMatcher))}}.Match(expectedJson, llmResponseJson, {{optionsText}}, settings);
@@ -457,7 +517,9 @@ else if (result is not null)
                 {{Name(nameof(JJScoringSettings.MissingWeight))}}: {{Number(settings.Scoring.MissingWeight)}},
                 {{Name(nameof(JJScoringSettings.AddedWeight))}}: {{Number(settings.Scoring.AddedWeight)}},
                 {{Name(nameof(JJScoringSettings.TypeMismatchWeight))}}: {{Number(settings.Scoring.TypeMismatchWeight)}},
-                {{Name(nameof(JJScoringSettings.ValueMismatchWeight))}}: {{Number(settings.Scoring.ValueMismatchWeight)}}
+                {{Name(nameof(JJScoringSettings.ValueMismatchWeight))}}: {{Number(settings.Scoring.ValueMismatchWeight)}},
+                {{Name(nameof(JJScoringSettings.PropertyNameCaseMismatchWeight))}}: {{Number(settings.Scoring.PropertyNameCaseMismatchWeight)}},
+                {{Name(nameof(JJScoringSettings.ValueCaseMismatchWeight))}}: {{Number(settings.Scoring.ValueCaseMismatchWeight)}}
               }
             }
             """);

@@ -24,6 +24,7 @@
 /* Positioned against the settings section, so it stays inside the column whatever the icon's place in it. */
 .tip-body {
     display: none;
+    flex-direction: column;
     left: 1rem;
     margin-top: 0.25rem;
     max-width: 22rem;
@@ -68,6 +69,12 @@
 
 .snippet .str {
     color: #a31515;
+}
+
+.compare-btn {
+    position: sticky;
+    top: 0.5rem;
+    z-index: 20;
 }
 
 .error {
