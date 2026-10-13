@@ -326,18 +326,21 @@ public class JJMatcherIntegrationTests
     }
 
     [Fact]
-    public void Stringified_input_is_opt_in_and_nested_strings_stay_literal()
+    public void Stringified_object_or_array_root_is_decoded_and_other_string_roots_stay_literal()
     {
         var json = File.ReadAllText(Path.Combine(TestDataDirectory, "Left.json"));
         var text = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", "Stringified", "LeftStringify.txt"));
-        var settings = new JJMatchSettings { MaxDepth = 128, ParseStringifiedJson = true };
+        var settings = new JJMatchSettings { MaxDepth = 128 };
         Assert.True(JJMatcher.Match(text, json, settings: settings).IsMatch);
         Assert.True(JJMatcher.Match(json, text, settings: settings).IsMatch);
-        Assert.False(JJMatcher.Match(text, json, settings: new JJMatchSettings { MaxDepth = 128 }).IsMatch);
         Assert.False(JJMatcher.Match(Input("Left", "nestedStringified"), Input("Right", "nestedStringified"), settings: settings).IsMatch);
+        // "{" and a lone surrogate are string roots that cannot be decoded as JSON: they compare as the strings they are.
+        var invalidText = Input("Left", "invalidText");
+        Assert.True(JJMatcher.Match(invalidText, invalidText).IsMatch);
+        Assert.Equal(JJDifferenceKind.ValueMismatch, Assert.Single(JJMatcher.Match(invalidText, Input("Right", "invalidText")).Differences).Kind);
         var loneSurrogate = Fixture("Left").GetProperty("core").GetProperty("loneSurrogates").GetProperty("values")[0].GetRawText();
-        Assert.ThrowsAny<System.Text.Json.JsonException>(() => JJMatcher.Match(loneSurrogate, json, settings: settings));
-        Assert.ThrowsAny<System.Text.Json.JsonException>(() => JJMatcher.Match(Input("Left", "invalidText"), json, settings: settings));
+        Assert.True(JJMatcher.Match(loneSurrogate, loneSurrogate).IsMatch);
+        Assert.Equal(JJDifferenceKind.TypeMismatch, Assert.Single(JJMatcher.Match(loneSurrogate, json, settings: settings).Differences).Kind);
     }
 
     [Fact]
