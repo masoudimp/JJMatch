@@ -503,6 +503,23 @@ public class JJMatcherIntegrationTests
         Assert.Equal(JJDifferenceKind.ValueMismatch, Assert.Single(JJMatcher.Match(text, rightText, settings: shallow).Differences).Kind);
     }
 
+    [Fact]
+    public void Stringified_object_or_array_value_is_compared_as_the_json_it_holds()
+    {
+        // payload and reordered hold the same JSON on both sides, written with other white space or in another
+        // property and element order; changed is reordered too, but its status differs. Decoded, that one value is
+        // the only difference, not the whole string, and its path continues through the decoded document.
+        var result = JJMatcher.Match(Input("Left", "nestedStringified"), Input("Right", "nestedStringified"));
+        Consistent(result);
+        Assert.False(result.IsMatch);
+        var changed = Assert.Single(result.Differences);
+        Assert.Equal(JJDifferenceKind.ValueMismatch, changed.Kind);
+        Assert.Equal("$.changed.status", changed.LeftPath);
+        Assert.Equal("$.changed.status", changed.RightPath);
+        Assert.Equal("open", changed.LeftValue!.Value.GetString());
+        Assert.Equal("closed", changed.RightValue!.Value.GetString());
+    }
+
     [Theory]
     [InlineData("No real difference: property order")]
     [InlineData("Array order: elements reversed")]

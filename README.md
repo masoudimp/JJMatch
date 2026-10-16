@@ -32,7 +32,7 @@ foreach (var difference in result.Differences)
 - Optional structural shape comparison of arrays, Normalized, Numeric or Fuzzy value rules on top of identical values, which always match, with a configurable fuzzy similarity threshold, and a Normalized property name rule that pairs `name` with `Name`.
 - Read-only differences with paths and detached JSON snapshots, including original array indices and duplicate-property occurrences.
 - Deterministic, symmetric Sørensen–Dice node similarity from 0 to 100, with an optional weighted mode in which each kind of difference counts from 1 to 10. `IsMatch` is true exactly when `Score` is 100 and `Differences` is empty, under every mode. See [scoring](Docs/Scoring.md).
-- Automatic decoding of a stringified JSON object or array root, cancellation and configurable resource limits. Invalid options and settings throw rather than being silently ignored.
+- Automatic decoding of a stringified JSON object or array, as the root or as a value at any level, cancellation and configurable resource limits. Invalid options and settings throw rather than being silently ignored.
 
 Useful for comparing expected and actual API responses, test data, or structured LLM output. Similar JSON does not necessarily mean a factually correct answer.
 

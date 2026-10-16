@@ -35,8 +35,9 @@ public static class JJMatcher
         var budget = new ComparisonBudget(config, cancellationToken);
         using var leftDocument = Parse(json1, config, budget);
         using var rightDocument = Parse(json2, config, budget);
-        var left = JsonStructureTraverser.Traverse(leftDocument.RootElement, budget: budget);
-        var right = JsonStructureTraverser.Traverse(rightDocument.RootElement, budget: budget);
+        // Strings holding a serialized object or array are compared as the document they hold, within MaxDepth overall.
+        var left = JsonStructureTraverser.Traverse(leftDocument.RootElement, budget: budget, stringifiedDepth: config.MaxDepth);
+        var right = JsonStructureTraverser.Traverse(rightDocument.RootElement, budget: budget, stringifiedDepth: config.MaxDepth);
         var cache = new ComparisonCache(config.ArrayMode, budget, config.PropertyNameMode);
         var total = StructureMatcher.CountNodes(left, config.ArrayMode, budget, cache)
             + StructureMatcher.CountNodes(right, config.ArrayMode, budget, cache);
@@ -51,8 +52,8 @@ public static class JJMatcher
         var differences = new List<JJDifference>(match.Differences.Count);
         if (match.Differences.Count != 0)
         {
-            var leftLocations = Locations(left, leftDocument.RootElement, match.Differences.Select(d => d.Left), budget);
-            var rightLocations = Locations(right, rightDocument.RootElement, match.Differences.Select(d => d.Right), budget);
+            var leftLocations = Locations(left, leftDocument.RootElement, match.Differences.Select(d => d.Left), config.MaxDepth, budget);
+            var rightLocations = Locations(right, rightDocument.RootElement, match.Differences.Select(d => d.Right), config.MaxDepth, budget);
             foreach (var difference in match.Differences)
             {
                 budget.Spend();
@@ -110,37 +111,22 @@ public static class JJMatcher
         var options = new JsonDocumentOptions { MaxDepth = settings.MaxDepth };
         var document = JsonDocument.Parse(text, options);
         if (document.RootElement.ValueKind != JsonValueKind.String) return document;
-        // A string root holding a serialized object or array is decoded, one layer only. Any other string root,
-        // undecodable or unparsable ones included, stays a literal string, so every JSON root is still accepted.
-        string decoded;
-        try
-        {
-            decoded = document.RootElement.GetString()!;
-        }
-        catch (InvalidOperationException)
-        {
-            return document;
-        }
-        var start = decoded.AsSpan().TrimStart(" \t\r\n".AsSpan());
-        if (start.Length == 0 || (start[0] != '{' && start[0] != '[')) return document;
-        budget.Spend();
-        try
-        {
-            var inner = JsonDocument.Parse(decoded, options);
-            document.Dispose();
-            return inner;
-        }
-        catch (JsonException)
-        {
-            return document;
-        }
+        // A string root holding a serialized object or array is decoded, one layer only; strings inside it are
+        // decoded by Traverse. Any other string root, undecodable or unparsable ones included, stays a literal
+        // string, so every JSON root is still accepted.
+        var inner = JsonStructureTraverser.Stringified(document.RootElement, settings.MaxDepth, budget);
+        if (inner is null) return document;
+        document.Dispose();
+        return inner;
     }
 
     // Revisit only the original positions, not comparison semantics. Snapshot just the selected differences,
     // while their source documents are alive. Duplicate occurrence suffixes include every duplicated ancestor.
-    // Only the containers above a wanted node are entered; everything else is skipped without a path.
+    // Only the containers above a wanted node are entered; everything else is skipped without a path. A string that
+    // Traverse decoded is snapshot as the string it is, and entered as the document it holds: its paths continue
+    // through that document as if it were written in place.
     private static Dictionary<JsonStructureNode, (string Path, JsonElement Element)> Locations(
-        JsonStructureNode root, JsonElement element, IEnumerable<JsonStructureNode?> wanted, ComparisonBudget budget)
+        JsonStructureNode root, JsonElement element, IEnumerable<JsonStructureNode?> wanted, int maxDepth, ComparisonBudget budget)
     {
         var targets = new HashSet<JsonStructureNode>();
         foreach (var node in wanted)
@@ -170,6 +156,12 @@ public static class JJMatcher
         {
             budget.Spend(1L + path.Length);
             if (targets.Contains(node)) locations.Add(node, (path, value));
+            if (value.ValueKind == JsonValueKind.String && node.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
+            {
+                // It parsed within fewer levels in Traverse, so it parses within maxDepth here.
+                using var document = JsonStructureTraverser.Stringified(value, maxDepth, budget)!;
+                value = document.RootElement.Clone();
+            }
             if (node.ValueKind == JsonValueKind.Array)
             {
                 var index = 0;

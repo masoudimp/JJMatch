@@ -12,7 +12,10 @@ internal static class JsonStructureTraverser
     // Object properties and array elements become children in document order: nothing is sorted, merged or dropped.
     // Strings are stored decoded and numbers as their raw text; true, false and null are carried by the kind alone.
     // Empty objects and arrays share the empty child list of the primitives.
-    internal static JsonStructureNode Traverse(JsonElement element, string? propertyName = null, ComparisonBudget? budget = null)
+    // A positive stringifiedDepth also decodes a string holding a serialized object or array, at any level: the
+    // string's node becomes the node of the document it holds, nested at most that many levels deep, which is
+    // walked by the same rules. Every other string, and every string when it is 0, stays a string.
+    internal static JsonStructureNode Traverse(JsonElement element, string? propertyName = null, ComparisonBudget? budget = null, int stringifiedDepth = 0)
     {
         budget?.VisitNode();
         switch (element.ValueKind)
@@ -23,7 +26,7 @@ internal static class JsonStructureTraverser
                 var index = 0;
                 foreach (var property in element.EnumerateObject())
                 {
-                    (properties ??= new List<JsonStructureNode>()).Add(Traverse(property.Value, DecodeName(property, element, index, ref rawNames), budget));
+                    (properties ??= new List<JsonStructureNode>()).Add(Traverse(property.Value, DecodeName(property, element, index, ref rawNames), budget, stringifiedDepth - 1));
                     index++;
                 }
                 return new JsonStructureNode(propertyName, JsonValueKind.Object, null, Children(properties));
@@ -32,11 +35,18 @@ internal static class JsonStructureTraverser
                 List<JsonStructureNode>? items = null;
                 foreach (var item in element.EnumerateArray())
                 {
-                    (items ??= new List<JsonStructureNode>(element.GetArrayLength())).Add(Traverse(item, budget: budget));
+                    (items ??= new List<JsonStructureNode>(element.GetArrayLength())).Add(Traverse(item, budget: budget, stringifiedDepth: stringifiedDepth - 1));
                 }
                 return new JsonStructureNode(propertyName, JsonValueKind.Array, null, Children(items));
 
             case JsonValueKind.String:
+                if (stringifiedDepth > 0 && Stringified(element, stringifiedDepth, budget) is { } document)
+                {
+                    using (document)
+                    {
+                        return Traverse(document.RootElement, propertyName, budget, stringifiedDepth);
+                    }
+                }
                 return new JsonStructureNode(propertyName, JsonValueKind.String, DecodeString(element), Array.Empty<JsonStructureNode>());
 
             case JsonValueKind.Number:
@@ -49,6 +59,32 @@ internal static class JsonStructureTraverser
 
     private static IReadOnlyList<JsonStructureNode> Children(List<JsonStructureNode>? children) =>
         children is null ? Array.Empty<JsonStructureNode>() : children;
+
+    // The document a string holds when its text, after leading JSON white space, starts with '{' or '[' and parses
+    // within maxDepth levels; otherwise null. A string that cannot be decoded as Unicode text holds none.
+    internal static JsonDocument? Stringified(JsonElement element, int maxDepth, ComparisonBudget? budget)
+    {
+        string text;
+        try
+        {
+            text = element.GetString()!;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+        var start = text.AsSpan().TrimStart(" \t\r\n".AsSpan());
+        if (start.Length == 0 || (start[0] != '{' && start[0] != '[')) return null;
+        budget?.Spend();
+        try
+        {
+            return JsonDocument.Parse(text, new JsonDocumentOptions { MaxDepth = maxDepth });
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 
     // The parser accepts a lone surrogate escape (\uD800, \uDC00) in a name, but JsonProperty.Name rejects it when
     // it decodes the name. Such a name is decoded from the object's raw text instead, keeping the surrogate as the

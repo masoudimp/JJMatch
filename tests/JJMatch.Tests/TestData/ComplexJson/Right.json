@@ -602,7 +602,7 @@
     "emptyObject": {},
     "emptyArray": [],
     "fuzzyAssignment": ["Jon Smyth", "Jon Smith"],
-    "nestedStringified": { "payload": "{ \"a\": 1 }" },
+    "nestedStringified": { "payload": "{ \"a\": 1 }", "reordered": "{\"tags\":[\"y\",\"x\"],\"id\":7}", "changed": "{\"status\":\"closed\",\"id\":7}" },
     "invalidText": "not json",
     "propertyNames": { "ID": 1, " Name ": "Ali", "postal_code": "V6B", "café": true, "items": [{ "Sku": "A" }, { "sku": "B" }] }
   }

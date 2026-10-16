@@ -851,7 +851,7 @@
     "emptyObject": {},
     "emptyArray": [],
     "fuzzyAssignment": ["Jhon Smiht", "Jon Smith"],
-    "nestedStringified": { "payload": "{\"a\":1}" },
+    "nestedStringified": { "payload": "{\"a\":1}", "reordered": "{\"id\":7,\"tags\":[\"x\",\"y\"]}", "changed": "{\"id\":7,\"status\":\"open\"}" },
     "invalidText": "{",
     "propertyNames": { "id": 1, "name": "Ali", "postalCode": "V6B", "café": true, "items": [{ "sku": "A" }, { "SKU": "B" }] }
   }

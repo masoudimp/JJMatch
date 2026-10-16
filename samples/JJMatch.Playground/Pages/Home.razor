@@ -1,5 +1,6 @@
 @page "/"
 @using System.Globalization
+@using System.Text.Encodings.Web
 @using System.Text.Json
 @using System.Text.RegularExpressions
 @using Microsoft.JSInterop
@@ -7,55 +8,69 @@
 
 <PageTitle>JJMatch Playground</PageTitle>
 
-<div class="container-xl py-4">
+<div class="container-xl pb-4" @onkeydown="OnKeyDown">
 
-<h1 class="h3">JJMatch Playground</h1>
+<header class="toolbar d-flex flex-wrap align-items-center gap-2 py-2 mb-3 border-bottom">
+    <h1 class="h4 mb-0 me-auto">JJMatch Playground</h1>
+    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="LoadExample">Load example</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="Clear" disabled="@(left.Length == 0 && right.Length == 0 && result is null && error is null)">Clear</button>
+    <button type="button" class="btn btn-primary" @onclick="Compare" disabled="@(!CanCompare)" title="@CompareHint">Compare</button>
+    <span class="small text-body-secondary d-none d-md-inline" aria-hidden="true"><kbd>@(mac ? "⌘" : "Ctrl")</kbd> + <kbd>Enter</kbd></span>
+    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CycleTheme" title="Switch theme">Theme: @ThemeLabel</button>
+</header>
+
 <p class="text-body-secondary">Paste two JSON documents, choose the rules, and compare them with <code>JJMatcher.Match</code>.</p>
 
 <div class="row g-3 mb-3">
-    <div class="col-md-6">
-        <label class="form-label fw-semibold" for="left">Expected JSON</label>
-        <textarea id="left" class="form-control font-monospace json-input" @bind="left" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 30 }"></textarea>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label fw-semibold" for="right">LLM response JSON</label>
-        <textarea id="right" class="form-control font-monospace json-input" @bind="right" spellcheck="false" placeholder="{ &quot;name&quot;: &quot;Ann&quot;, &quot;age&quot;: 31 }"></textarea>
-    </div>
+    @JsonEditor(Side.Left, "left", "Expected JSON", "{ \"name\": \"Ann\", \"age\": 30 }")
+    @JsonEditor(Side.Right, "right", "LLM response JSON", "{ \"name\": \"Ann\", \"age\": 31 }")
 </div>
 
 <details class="drawer card mb-3">
-<summary class="card-header fw-semibold">Settings</summary>
+<summary class="card-header">
+    <span class="fw-semibold me-1">Settings</span>
+    @if (!SettingsValid)
+    {
+        <span class="badge text-bg-danger me-1">Invalid</span>
+    }
+    <span class="settings-summary small text-body-secondary">@SettingsSummary</span>
+</summary>
 <div class="card-body">
 
 <div class="row g-3 mb-4">
     <div class="col-lg-4">
-        <section class="border rounded p-3 h-100 position-relative">
+        <section class="border rounded p-3 h-100">
             <h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Scope</h2>
 
             <fieldset class="mb-3">
                 <legend class="fs-6 fw-semibold mb-1">Compare</legend>
                 <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="compare-structural" @bind="structuralMatching" />
-                    <label class="form-check-label" for="compare-structural">StructuralMatching</label>
-                    @Tip(StructuralTip)
+                    <input class="form-check-input" type="radio" name="scope" id="scope-all" checked="@(scope == JJMatchOptions.All)" @onchange="() => scope = JJMatchOptions.All" />
+                    <label class="form-check-label" for="scope-all">Both <span class="small text-body-secondary">structure and values</span></label>
+                    @Tip("scope-all", AllTip)
                 </div>
                 <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="compare-value" @bind="valueMatching" />
-                    <label class="form-check-label" for="compare-value">ValueMatching</label>
-                    @Tip(ValueTip)
+                    <input class="form-check-input" type="radio" name="scope" id="scope-structural" checked="@(scope == JJMatchOptions.StructuralMatching)" @onchange="() => scope = JJMatchOptions.StructuralMatching" />
+                    <label class="form-check-label" for="scope-structural">StructuralMatching <span class="small text-body-secondary">values ignored</span></label>
+                    @Tip("scope-structural", StructuralTip)
                 </div>
-                <div class="form-text">Neither selected means both.</div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="scope" id="scope-value" checked="@(scope == JJMatchOptions.ValueMatching)" @onchange="() => scope = JJMatchOptions.ValueMatching" />
+                    <label class="form-check-label" for="scope-value">ValueMatching <span class="small text-body-secondary">values in context</span></label>
+                    @Tip("scope-value", ValueTip)
+                </div>
             </fieldset>
 
             <label class="form-label fw-semibold mb-1" for="max-depth">MaxDepth</label>
-            @Tip(MaxDepthTip)
-            <input class="form-control form-control-sm number-input" type="number" id="max-depth" min="1" @bind="maxDepth" />
-            <div class="form-text">Deepest nesting allowed, at least 1.</div>
+            @Tip("max-depth", MaxDepthTip)
+            <input class="form-control form-control-sm number-input @Invalid(MaxDepthError)" type="number" id="max-depth" min="1" step="1" inputmode="numeric" aria-describedby="max-depth-help" @bind="maxDepth" @bind:event="oninput" />
+            @Feedback(MaxDepthError)
+            <div id="max-depth-help" class="form-text">Deepest nesting allowed, at least 1.</div>
         </section>
     </div>
 
     <div class="col-lg-4">
-        <section class="border rounded p-3 h-100 position-relative">
+        <section class="border rounded p-3 h-100">
             <h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Structure</h2>
 
             <fieldset class="mb-3">
@@ -63,12 +78,12 @@
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="arrays" id="arrays-strict" checked="@(arrayMode == JJArrayMatchingMode.Strict)" @onchange="() => arrayMode = JJArrayMatchingMode.Strict" />
                     <label class="form-check-label" for="arrays-strict">Strict <span class="small text-body-secondary">values and count</span></label>
-                    @Tip(StrictTip)
+                    @Tip("arrays-strict", StrictTip)
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="arrays" id="arrays-structure" checked="@(arrayMode == JJArrayMatchingMode.StructureOnly)" @onchange="() => arrayMode = JJArrayMatchingMode.StructureOnly" />
                     <label class="form-check-label" for="arrays-structure">StructureOnly <span class="small text-body-secondary">shapes only</span></label>
-                    @Tip(StructureOnlyTip)
+                    @Tip("arrays-structure", StructureOnlyTip)
                 </div>
             </fieldset>
 
@@ -77,7 +92,7 @@
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="names-normalized" @bind="normalizedNames" />
                     <label class="form-check-label" for="names-normalized">Normalized <span class="small text-body-secondary">case, outer white space and Unicode form ignored</span></label>
-                    @Tip(NormalizedNamesTip)
+                    @Tip("names-normalized", NormalizedNamesTip)
                 </div>
                 <div class="form-text">Identical names always match.</div>
             </fieldset>
@@ -85,7 +100,7 @@
     </div>
 
     <div class="col-lg-4">
-        <section class="border rounded p-3 h-100 position-relative">
+        <section class="border rounded p-3 h-100">
             <h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Values</h2>
 
             <fieldset class="mb-3">
@@ -93,77 +108,57 @@
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="checkbox" id="values-normalized" @bind="normalized" />
                     <label class="form-check-label" for="values-normalized">Normalized</label>
-                    @Tip(NormalizedTip)
+                    @Tip("values-normalized", NormalizedTip)
                 </div>
                 <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" id="values-fuzzy" @bind="fuzzy" />
+                    <input class="form-check-input" type="checkbox" id="values-fuzzy" @bind="fuzzy" @bind:after="OnFuzzyChanged" />
                     <label class="form-check-label" for="values-fuzzy">Fuzzy</label>
-                    @Tip(FuzzyTip)
+                    @Tip("values-fuzzy", FuzzyTip)
                 </div>
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="checkbox" id="values-numeric" @bind="numeric" />
                     <label class="form-check-label" for="values-numeric">Numeric</label>
-                    @Tip(NumericTip)
+                    @Tip("values-numeric", NumericTip)
                 </div>
                 <div class="form-text">Identical values always match. Selected rules are combined with OR.</div>
             </fieldset>
 
             <label class="form-label fw-semibold mb-1" for="fuzzy-threshold">FuzzyThreshold</label>
-            @Tip(FuzzyThresholdTip)
-            <input class="form-control form-control-sm number-input" type="number" id="fuzzy-threshold" min="0" max="1" step="0.05" disabled="@(!fuzzy)" @bind="fuzzyThreshold" />
-            <div class="form-text">0 to 1, the least similarity Fuzzy accepts. Used only when Fuzzy is selected.</div>
+            @Tip("fuzzy-threshold", FuzzyThresholdTip)
+            <input class="form-control form-control-sm number-input @Invalid(FuzzyThresholdError)" type="number" id="fuzzy-threshold" min="0" max="1" step="0.05" inputmode="decimal" aria-describedby="fuzzy-threshold-help" disabled="@(!fuzzy)" @bind="fuzzyThreshold" @bind:event="oninput" />
+            @Feedback(FuzzyThresholdError)
+            <div id="fuzzy-threshold-help" class="form-text">0 to 1, the least similarity Fuzzy accepts. Used only when Fuzzy is selected.</div>
         </section>
     </div>
 
     <div class="col-12">
-        <section class="border rounded p-3 h-100 position-relative">
+        <section class="border rounded p-3 h-100">
             <h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Scoring</h2>
 
             <fieldset class="mb-3">
                 <legend class="fs-6 fw-semibold mb-1">Mode</legend>
                 <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="scoring" id="scoring-standard" checked="@(scoringMode == JJScoringMode.Standard)" @onchange="() => scoringMode = JJScoringMode.Standard" />
+                    <input class="form-check-input" type="radio" name="scoring" id="scoring-standard" checked="@(scoringMode == JJScoringMode.Standard)" @onchange="() => SetScoringMode(JJScoringMode.Standard)" />
                     <label class="form-check-label" for="scoring-standard">Standard <span class="small text-body-secondary">every difference counts fully</span></label>
-                    @ScoreTip(StandardTipText)
+                    @Tip("scoring-standard", StandardTipText, ScoreExample(ModeExampleLeft, ModeExampleRight, JJScoringMode.Standard))
                 </div>
                 <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="scoring" id="scoring-weighted" checked="@(scoringMode == JJScoringMode.Weighted)" @onchange="() => scoringMode = JJScoringMode.Weighted" />
+                    <input class="form-check-input" type="radio" name="scoring" id="scoring-weighted" checked="@(scoringMode == JJScoringMode.Weighted)" @onchange="() => SetScoringMode(JJScoringMode.Weighted)" />
                     <label class="form-check-label" for="scoring-weighted">Weighted <span class="small text-body-secondary">each kind of difference counts by its weight</span></label>
-                    @ScoreTip(WeightedTipText)
+                    @Tip("scoring-weighted", WeightedTipText, ScoreExample(ModeExampleLeft, ModeExampleRight, JJScoringMode.Weighted))
                 </div>
             </fieldset>
 
             <div class="row g-3">
-                <div class="col-auto">
-                    <label class="form-label fw-semibold mb-1" for="weight-missing">MissingWeight</label>
-                    @ScoreTip(MissingWeightTipText)
-                    <input class="form-control form-control-sm number-input" type="number" id="weight-missing" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="missingWeight" />
-                </div>
-                <div class="col-auto">
-                    <label class="form-label fw-semibold mb-1" for="weight-added">AddedWeight</label>
-                    @ScoreTip(AddedWeightTipText)
-                    <input class="form-control form-control-sm number-input" type="number" id="weight-added" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="addedWeight" />
-                </div>
-                <div class="col-auto">
-                    <label class="form-label fw-semibold mb-1" for="weight-type">TypeMismatchWeight</label>
-                    @ScoreTip(TypeMismatchWeightTipText)
-                    <input class="form-control form-control-sm number-input" type="number" id="weight-type" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="typeMismatchWeight" />
-                </div>
-                <div class="col-auto">
-                    <label class="form-label fw-semibold mb-1" for="weight-value">ValueMismatchWeight</label>
-                    @ScoreTip(ValueMismatchWeightTipText)
-                    <input class="form-control form-control-sm number-input" type="number" id="weight-value" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="valueMismatchWeight" />
-                </div>
-                <div class="col-auto">
-                    <label class="form-label fw-semibold mb-1" for="weight-name-case">PropertyNameCaseMismatchWeight</label>
-                    @ScoreTip(PropertyNameCaseMismatchWeightTipText)
-                    <input class="form-control form-control-sm number-input" type="number" id="weight-name-case" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="propertyNameCaseMismatchWeight" />
-                </div>
-                <div class="col-auto">
-                    <label class="form-label fw-semibold mb-1" for="weight-value-case">ValueCaseMismatchWeight</label>
-                    @ScoreTip(ValueCaseMismatchWeightTipText)
-                    <input class="form-control form-control-sm number-input" type="number" id="weight-value-case" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="valueCaseMismatchWeight" />
-                </div>
+                @foreach (var weight in weights)
+                {
+                    <div class="col-auto">
+                        <label class="form-label fw-semibold mb-1" for="@weight.Id">@weight.Name</label>
+                        @Tip(weight.Id, weight.TipText, ScoreExample(weight.ExampleLeft, weight.ExampleRight, JJScoringMode.Weighted))
+                        <input class="form-control form-control-sm number-input @Invalid(WeightError(weight))" type="number" id="@weight.Id" min="@JJScoringSettings.MinWeight" max="@JJScoringSettings.MaxWeight" step="1" inputmode="numeric" disabled="@(scoringMode != JJScoringMode.Weighted)" @bind="weight.Value" @bind:event="oninput" />
+                        @Feedback(WeightError(weight))
+                    </div>
+                }
             </div>
             <div class="form-text">@JJScoringSettings.MinWeight (least important) to @JJScoringSettings.MaxWeight (the Standard cost). Used only when Weighted is selected.</div>
         </section>
@@ -171,265 +166,655 @@
 </div>
 
 <h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Code for the selected settings</h2>
-<div class="row g-3">
-    <div class="col-lg-6">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="fw-semibold">C#</span>
-            <button class="btn btn-sm btn-outline-secondary" @onclick="() => Copy(Snippet())">Copy</button>
+@if (!SettingsValid)
+{
+    <div class="alert alert-warning mb-0" role="alert">Fix the highlighted settings to see the code.</div>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-semibold">C#</span>
+                @CopyButton("csharp", Snippet())
+            </div>
+            <pre class="snippet border rounded bg-body-tertiary p-2 mb-0"><code class="language-csharp">@Snippet()</code></pre>
         </div>
-        <pre class="snippet border rounded bg-body-tertiary p-2 mb-0"><code class="language-csharp">@Snippet()</code></pre>
-    </div>
-    <div class="col-lg-6">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="fw-semibold">JJSetting.json</span>
-            <button class="btn btn-sm btn-outline-secondary" @onclick="() => Copy(SettingsJson())">Copy</button>
+        <div class="col-lg-6">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-semibold">JJSetting.json</span>
+                @CopyButton("json", SettingsJson())
+            </div>
+            <pre class="snippet border rounded bg-body-tertiary p-2 mb-0"><code class="language-json">@SettingsJson()</code></pre>
+            <p class="form-text mb-0">Load it with <code>JJMatchSettings.FromJson(File.ReadAllText("JJSetting.json"))</code>.</p>
         </div>
-        <pre class="snippet border rounded bg-body-tertiary p-2 mb-0"><code class="language-json">@SettingsJson()</code></pre>
-        <p class="form-text mb-0">Load it with <code>JJMatchSettings.FromJson(File.ReadAllText("JJSetting.json"))</code>.</p>
     </div>
-</div>
+}
 
 </div>
 </details>
 
-<button class="btn btn-primary mb-3 compare-btn" @onclick="Compare">Compare</button>
-
 @if (error is not null)
 {
-    <div class="alert alert-danger font-monospace error" role="alert">@error</div>
+    <section id="results" class="results">
+        <div class="alert alert-danger error" role="alert">
+            <div class="fw-semibold mb-1">Comparison failed</div>
+            <div class="font-monospace small">@error</div>
+        </div>
+    </section>
 }
 else if (result is not null)
 {
-    <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
-        <div class="col">
-            <div class="card h-100">
-                <div class="card-body py-2">
-                    <div class="small text-body-secondary text-break">IsMatch</div>
-                    <span class="badge fs-6 @(result.IsMatch ? "text-bg-success" : "text-bg-danger")">@result.IsMatch</span>
-                </div>
-            </div>
+    <section id="results" class="results">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <h2 class="h5 mb-0">Result</h2>
+            <span class="badge fs-6 @(result.IsMatch ? "text-bg-success" : "text-bg-danger")">@(result.IsMatch ? "Match" : "No match")</span>
+            <code class="small text-body-secondary">IsMatch = @(result.IsMatch ? "true" : "false")</code>
         </div>
-        <div class="col">
-            <div class="card h-100">
-                <div class="card-body py-2">
-                    <div class="small text-body-secondary text-break">Score</div>
-                    <div class="fs-5 text-break">@Percent(result.Score)</div>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card h-100">
-                <div class="card-body py-2">
-                    <div class="small text-body-secondary text-break">StructuralMatchPercentage</div>
-                    <div class="fs-5 text-break">@Percent(result.StructuralMatchPercentage)</div>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card h-100">
-                <div class="card-body py-2">
-                    <div class="small text-body-secondary text-break">ValueMatchPercentage</div>
-                    <div class="fs-5 text-break">@Percent(result.ValueMatchPercentage)</div>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card h-100">
-                <div class="card-body py-2">
-                    <div class="small text-body-secondary text-break">ElapsedMilliseconds</div>
-                    <div class="fs-5 text-break">@result.ElapsedMilliseconds.ToString("0.###", CultureInfo.InvariantCulture) ms</div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <h2 class="h5">Differences <span class="badge text-bg-secondary">@result.Differences.Count</span></h2>
-    @if (result.Differences.Count == 0)
-    {
-        <p class="text-body-secondary">None.</p>
-    }
-    else
-    {
-        <div class="table-responsive">
-            <table class="table table-sm table-striped table-hover">
-                <thead>
-                    <tr><th>Kind</th><th>ScoreWeight</th><th>Left path</th><th>Right path</th><th>Left value</th><th>Right value</th></tr>
-                </thead>
-                <tbody class="font-monospace small text-break">
-                    @foreach (var difference in result.Differences)
-                    {
-                        <tr>
-                            <td>@difference.Kind</td>
-                            <td>@difference.ScoreWeight</td>
-                            <td>@difference.LeftPath</td>
-                            <td>@difference.RightPath</td>
-                            <td>@Raw(difference.LeftValue)</td>
-                            <td>@Raw(difference.RightValue)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        <div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+            @Metric("Score", nameof(JJMatchResult.Score), Percent(result.Score))
+            @Metric("Structural match", nameof(JJMatchResult.StructuralMatchPercentage), Percent(result.StructuralMatchPercentage))
+            @Metric("Value match", nameof(JJMatchResult.ValueMatchPercentage), Percent(result.ValueMatchPercentage))
+            @Metric("Elapsed", nameof(JJMatchResult.ElapsedMilliseconds), result.ElapsedMilliseconds.ToString("0.###", CultureInfo.InvariantCulture) + " ms")
         </div>
-    }
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <h2 class="h5 mb-0 me-2">Differences <span class="badge text-bg-secondary">@result.Differences.Count</span></h2>
+            @foreach (var group in result.Differences.GroupBy(difference => difference.Kind).OrderBy(group => group.Key))
+            {
+                var shown = !hiddenKinds.Contains(group.Key);
+                <button type="button" class="btn btn-sm kind-chip @(shown ? KindButtonClass(group.Key) : "btn-outline-secondary")" aria-pressed="@(shown ? "true" : "false")" title="@(shown ? "Hide" : "Show") @group.Key differences" @onclick="() => ToggleKind(group.Key)">
+                    @group.Key <span class="badge text-bg-light ms-1">@group.Count()</span>
+                </button>
+            }
+        </div>
+
+        @if (result.Differences.Count == 0)
+        {
+            <p class="text-body-secondary">None.</p>
+        }
+        else if (VisibleDifferences.Count == 0)
+        {
+            <p class="text-body-secondary">Every kind is hidden. Select a kind above to show its differences.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-striped table-hover align-top">
+                    <thead>
+                        <tr>
+                            <th>Kind</th>
+                            @if (resultWeighted)
+                            {
+                                <th>ScoreWeight</th>
+                            }
+                            <th>Left path</th>
+                            <th>Right path</th>
+                            <th>Left value</th>
+                            <th>Right value</th>
+                        </tr>
+                    </thead>
+                    <tbody class="font-monospace small">
+                        @foreach (var (difference, row) in VisibleDifferences)
+                        {
+                            <tr>
+                                <td><span class="badge @KindBadgeClass(difference.Kind)">@difference.Kind</span></td>
+                                @if (resultWeighted)
+                                {
+                                    <td>@difference.ScoreWeight</td>
+                                }
+                                <td class="difference-path">@PathOrDash(difference.LeftPath)</td>
+                                <td class="difference-path">@PathOrDash(difference.RightPath)</td>
+                                <td>@ValueCell(row, Side.Left, difference.LeftValue)</td>
+                                <td>@ValueCell(row, Side.Right, difference.RightValue)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
 }
 
 </div>
 
 @code {
+    private enum Side { Left, Right }
+
     private string left = "";
     private string right = "";
     private JJMatchResult? result;
+    private bool resultWeighted;
     private string? error;
+    private bool revealResults;
+    private string theme = "auto";
+    private bool mac;
 
+    private JJMatchOptions scope = JJMatchOptions.All;
     private JJArrayMatchingMode arrayMode = JJArrayMatchingMode.Strict;
     private bool normalized, fuzzy, numeric, normalizedNames;
-    private bool structuralMatching = true, valueMatching = true;
-    private int maxDepth = new JJMatchSettings().MaxDepth;
-    private double fuzzyThreshold = new JJMatchSettings().FuzzyThreshold;
+    private int? maxDepth = new JJMatchSettings().MaxDepth;
+    private double? fuzzyThreshold = new JJMatchSettings().FuzzyThreshold;
     private JJScoringMode scoringMode = new JJScoringSettings().Mode;
-    private int missingWeight = new JJScoringSettings().MissingWeight;
-    private int addedWeight = new JJScoringSettings().AddedWeight;
-    private int typeMismatchWeight = new JJScoringSettings().TypeMismatchWeight;
-    private int valueMismatchWeight = new JJScoringSettings().ValueMismatchWeight;
-    private int propertyNameCaseMismatchWeight = new JJScoringSettings().PropertyNameCaseMismatchWeight;
-    private int valueCaseMismatchWeight = new JJScoringSettings().ValueCaseMismatchWeight;
+
+    private readonly HashSet<JJDifferenceKind> hiddenKinds = new();
+    private readonly HashSet<(int Row, Side Side)> expandedValues = new();
+    private readonly Dictionary<string, string> copyFeedback = new();
+    private readonly Dictionary<Side, (string Text, JsonStatus Status)> statusCache = new();
+    private readonly Dictionary<Side, string?> formatErrors = new();
+
+    // A long difference value is shown clamped with a Show more control.
+    private const int ValuePreviewLength = 160;
+
+    private readonly record struct JsonStatus(bool Ok, string Text, string? Detail, string Css);
+    private readonly record struct Example(string Left, string Right, string Badge, string BadgeClass, string? Note = null);
+
+    // One weight input per JJDifferenceKind, with an example pair that holds exactly one difference of that kind.
+    private sealed class WeightInput
+    {
+        public WeightInput(string id, string name, int defaultValue, string description, string exampleLeft, string exampleRight)
+        {
+            Id = id;
+            Name = name;
+            Default = defaultValue;
+            Value = defaultValue;
+            Description = description;
+            ExampleLeft = exampleLeft;
+            ExampleRight = exampleRight;
+        }
+
+        public string Id { get; }
+        public string Name { get; }
+        public int Default { get; }
+        public int? Value { get; set; }
+        public string Description { get; }
+        public string ExampleLeft { get; }
+        public string ExampleRight { get; }
+
+        public string TipText => Value is int value
+            ? $"{Description} Under Weighted at {value}:"
+            : $"{Description} Under Weighted:";
+    }
+
+    private static readonly JJScoringSettings DefaultScoring = new();
+
+    private readonly WeightInput[] weights =
+    {
+        new("weight-missing", nameof(JJScoringSettings.MissingWeight), DefaultScoring.MissingWeight,
+            "How much content missing from the response lowers the Weighted score.",
+            Object("\"name\": \"Ann\",\n  \"age\": 30"), Object("\"name\": \"Ann\"")),
+        new("weight-added", nameof(JJScoringSettings.AddedWeight), DefaultScoring.AddedWeight,
+            "How much content only the response has lowers the Weighted score.",
+            Object("\"name\": \"Ann\""), Object("\"name\": \"Ann\",\n  \"age\": 30")),
+        new("weight-type", nameof(JJScoringSettings.TypeMismatchWeight), DefaultScoring.TypeMismatchWeight,
+            "How much a value of another JSON type lowers the Weighted score.",
+            Object("\"name\": \"Ann\",\n  \"age\": 30"), Object("\"name\": \"Ann\",\n  \"age\": \"30\"")),
+        new("weight-value", nameof(JJScoringSettings.ValueMismatchWeight), DefaultScoring.ValueMismatchWeight,
+            "How much a different value of the same type lowers the Weighted score.",
+            Object("\"name\": \"Ann\",\n  \"age\": 30"), Object("\"name\": \"Ann\",\n  \"age\": 31")),
+        new("weight-name-case", nameof(JJScoringSettings.PropertyNameCaseMismatchWeight), DefaultScoring.PropertyNameCaseMismatchWeight,
+            "How much a property name differing only in case lowers the Weighted score.",
+            Object("\"name\": \"Ann\",\n  \"age\": 30"), Object("\"Name\": \"Ann\",\n  \"age\": 30")),
+        new("weight-value-case", nameof(JJScoringSettings.ValueCaseMismatchWeight), DefaultScoring.ValueCaseMismatchWeight,
+            "How much a string value differing only in case, outer white space or Unicode form lowers the Weighted score.",
+            Object("\"name\": \"Ann\",\n  \"city\": \"Oslo\""), Object("\"name\": \"Ann\",\n  \"city\": \"oslo\"")),
+    };
+
+    // The guide's worked example: reordered items, a case-only name, a fuzzy contact, a numeric total, a missing and
+    // an added property, and two changed values, so every rule and weight has something to act on.
+    private const string ExampleLeft = """
+        {
+          "orderId": "ORD-1042",
+          "currency": "USD",
+          "customer": { "name": "  Alice Chen  ", "city": "Seattle", "contact": "Jon Smith" },
+          "items": [{ "sku": "BOOK", "quantity": 1 }, { "sku": "PEN", "quantity": 2 }],
+          "total": 30,
+          "paid": true,
+          "delivery": { "days": 3, "note": "Leave at door" },
+          "legacyCode": null
+        }
+        """;
+
+    private const string ExampleRight = """
+        {
+          "orderId": "ORD-1042",
+          "currency": "USD",
+          "customer": { "name": "alice chen", "city": "Seattle", "contact": "John Smith" },
+          "items": [{ "sku": "PEN", "quantity": 2 }, { "sku": "BOOK", "quantity": 1 }],
+          "total": 30.0,
+          "paid": false,
+          "delivery": { "days": 5, "note": "Leave at door" },
+          "coupon": "WELCOME"
+        }
+        """;
 
     // One tooltip per setting: what it does, then two pairs of documents showing both outcomes.
-    private static readonly (string Text, (string Left, string Right, string Verdict) A, (string Left, string Right, string Verdict) B)
-        StructuralTip = ("When active, property names, JSON types and nesting are compared. Selected alone, values are ignored.",
-            (Object("\"age\": 30"), Object("\"age\": 31"), "Accepted"),
-            (Object("\"age\": 30"), Object("\"age\": \"30\""), "Rejected")),
-        ValueTip = ("When active, primitive values are compared, using the Values rules.",
-            (Object("\"age\": 30"), Object("\"age\": 30"), "Accepted"),
-            (Object("\"age\": 30"), Object("\"age\": 31"), "Rejected")),
+    private static readonly (string Text, Example A, Example B)
+        AllTip = ("Property names, JSON types, nesting and primitive values are all compared.",
+            Verdict(Object("\"age\": 30"), Object("\"age\": 30"), true),
+            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), false)),
+        StructuralTip = ("Only property names, JSON types and nesting are compared. Values are ignored.",
+            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), true),
+            Verdict(Object("\"age\": 30"), Object("\"age\": \"30\""), false)),
+        ValueTip = ("Values are compared using the Values rules, within the structure. The structural percentage is not reported separately.",
+            Verdict(Object("\"age\": 30"), Object("\"age\": 30"), true),
+            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), false)),
         MaxDepthTip = ("The deepest nesting of objects and arrays a document may have. Deeper input is rejected. At 1:",
-            (Object("\"age\": 30"), Object("\"age\": 30"), "Accepted"),
-            (Object("\"user\": { \"age\": 30 }"), Object("\"user\": { \"age\": 30 }"), "Rejected")),
-        StrictTip = ("When active, array elements may be in any order, but each must occur the same number of times.",
-            ("[1, 2, 3]", "[3, 2, 1]", "Accepted"),
-            ("[1, 2, 3]", "[1, 2, 2]", "Rejected")),
-        StructureOnlyTip = ("When active, only the shapes of array elements are compared. Count and values are ignored.",
-            ("[1, 2, 3]", "[9]", "Accepted"),
-            ("[1, 2, 3]", "[{ \"a\": 1 }]", "Rejected")),
-        NormalizedNamesTip = ("When active, property names match ignoring case, outer white space and Unicode form.",
-            (Object("\"age\": 30"), Object("\" Age \": 30"), "Accepted"),
-            (Object("\"age\": 30"), Object("\"ag_e\": 30"), "Rejected")),
-        NormalizedTip = ("When active, strings match ignoring case, outer white space and Unicode form.",
-            (Object("\"city\": \"New York\""), Object("\"city\": \" new york \""), "Accepted"),
-            (Object("\"city\": \"New York\""), Object("\"city\": \"Boston\""), "Rejected")),
-        FuzzyTip = ("When active, strings match when they are similar enough, tolerating typos.",
-            (Object("\"name\": \"John Smith\""), Object("\"name\": \"Jon Smith\""), "Accepted"),
-            (Object("\"name\": \"John Smith\""), Object("\"name\": \"Totally Different\""), "Rejected")),
-        NumericTip = ("When active, numbers match as quantities, however they are written.",
-            (Object("\"age\": 30"), Object("\"age\": 30.0"), "Accepted"),
-            (Object("\"age\": 30"), Object("\"age\": 31"), "Rejected"));
+            Verdict(Object("\"age\": 30"), Object("\"age\": 30"), true),
+            Verdict(Object("\"user\": { \"age\": 30 }"), Object("\"user\": { \"age\": 30 }"), false)),
+        StrictTip = ("Array elements may be in any order, but each must occur the same number of times.",
+            Verdict("[1, 2, 3]", "[3, 2, 1]", true),
+            Verdict("[1, 2, 3]", "[1, 2, 2]", false)),
+        StructureOnlyTip = ("Only the shapes of array elements are compared. Count and values are ignored.",
+            Verdict("[1, 2, 3]", "[9]", true),
+            Verdict("[1, 2, 3]", "[{ \"a\": 1 }]", false)),
+        NormalizedNamesTip = ("Property names match ignoring case, outer white space and Unicode form.",
+            Verdict(Object("\"age\": 30"), Object("\" Age \": 30"), true),
+            Verdict(Object("\"age\": 30"), Object("\"ag_e\": 30"), false)),
+        NormalizedTip = ("Strings match ignoring case, outer white space and Unicode form.",
+            Verdict(Object("\"city\": \"New York\""), Object("\"city\": \" new york \""), true),
+            Verdict(Object("\"city\": \"New York\""), Object("\"city\": \"Boston\""), false)),
+        FuzzyTip = ("Strings match when they are similar enough, tolerating typos.",
+            Verdict(Object("\"name\": \"John Smith\""), Object("\"name\": \"Jon Smith\""), true),
+            Verdict(Object("\"name\": \"John Smith\""), Object("\"name\": \"Totally Different\""), false)),
+        NumericTip = ("Numbers match as quantities, however they are written.",
+            Verdict(Object("\"age\": 30"), Object("\"age\": 30.0"), true),
+            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), false));
 
-    // All scoring tips share one example pair and show the score it actually gets under the
-    // current settings, rather than a fixed Accepted/Rejected verdict.
-    private static readonly string ScoringExampleLeft = Object("\"name\": \"jhn\",\n  \"age\": 30,\n  \"city\": \"vancouver\"");
-    private static readonly string ScoringExampleRight = Object("\"name\": \"John\",\n  \"age\": 30,\n  \"city\": \"Vancouver\"");
+    // The scoring mode tips share one pair holding a TypeMismatch and a Missing difference, scored under each mode.
+    private static readonly string ModeExampleLeft = Object("\"name\": \"Ann\",\n  \"age\": 30,\n  \"city\": \"Oslo\"");
+    private static readonly string ModeExampleRight = Object("\"name\": \"Ann\",\n  \"age\": \"30\"");
 
-    private const string StandardTipText = "When active, every difference lowers the score fully, whatever its kind.";
-    private const string WeightedTipText = "When active, each kind of difference lowers the score by its weight.";
-
-    private string MissingWeightTipText =>
-        $"How much content missing from the response lowers the Weighted score. At {missingWeight}:";
-
-    private string AddedWeightTipText =>
-        $"How much content only the response has lowers the Weighted score. At {addedWeight}:";
-
-    private string TypeMismatchWeightTipText =>
-        $"How much a value of another JSON type lowers the Weighted score. At {typeMismatchWeight}:";
-
-    private string ValueMismatchWeightTipText =>
-        $"How much a different value of the same type lowers the Weighted score. At {valueMismatchWeight}:";
-
-    private string PropertyNameCaseMismatchWeightTipText =>
-        $"How much a property name differing only in case lowers the Weighted score. At {propertyNameCaseMismatchWeight}:";
-
-    private string ValueCaseMismatchWeightTipText =>
-        $"How much a string value differing only in case, outer white space or Unicode form lowers the Weighted score. At {valueCaseMismatchWeight}:";
+    private const string StandardTipText = "Every difference lowers the score fully, whatever its kind. Under Standard:";
+    private const string WeightedTipText = "Each kind of difference lowers the score by its weight. Under Weighted with the weights below:";
 
     // "Incorporation" vs "Incorparation" (one edit) and "Incorporation" vs "Subsidiary" (twelve
     // edits) are fixed examples, so only the allowed-edits side of each comparison moves as
     // fuzzyThreshold changes, matching ValueMatcher's own length - Ceiling(threshold * length)
     // rule (see src/JJMatch/Internal/Matching/ValueMatcher.cs).
-    private (string Text, (string Left, string Right, string Verdict) Close, (string Left, string Right, string Verdict) Far) FuzzyThresholdTip
+    private (string Text, Example A, Example B) FuzzyThresholdTip
     {
         get
         {
             const int length = 13; // "Incorporation".Length, the longer of the example strings
             const int closeDistance = 1; // edits from "Incorporation" to "Incorparation"
             const int farDistance = 12; // edits from "Incorporation" to "Subsidiary"
-            var thresholdText = fuzzyThreshold.ToString("0.##", CultureInfo.InvariantCulture);
-            var allowedEdits = length - (int)Math.Ceiling(fuzzyThreshold * length);
-            var charsPerEdit = fuzzyThreshold >= 1
+            var threshold = FuzzyThresholdError is null && fuzzyThreshold is double value ? value : new JJMatchSettings().FuzzyThreshold;
+            var thresholdText = threshold.ToString("0.##", CultureInfo.InvariantCulture);
+            var allowedEdits = length - (int)Math.Ceiling(threshold * length);
+            var charsPerEdit = threshold >= 1
                 ? "any"
-                : (1 / (1 - fuzzyThreshold)).ToString("0.#", CultureInfo.InvariantCulture);
+                : (1 / (1 - threshold)).ToString("0.#", CultureInfo.InvariantCulture);
             return (
                 $"The least similarity Fuzzy accepts: {thresholdText} allows one edit for every {charsPerEdit} characters. At {thresholdText}:",
-                (Object("\"name\": \"Incorporation\""), Object("\"name\": \"Incorparation\""), closeDistance <= allowedEdits ? "Accepted" : "Rejected"),
-                (Object("\"name\": \"Incorporation\""), Object("\"name\": \"Subsidiary\""), farDistance <= allowedEdits ? "Accepted" : "Rejected"));
+                Verdict(Object("\"name\": \"Incorporation\""), Object("\"name\": \"Incorparation\""), closeDistance <= allowedEdits),
+                Verdict(Object("\"name\": \"Incorporation\""), Object("\"name\": \"Subsidiary\""), farDistance <= allowedEdits));
         }
     }
 
     private static string Object(string properties) => "{\n  " + properties + "\n}";
 
-    private RenderFragment ScoreTip(string text) => @<span class="tip" tabindex="0">
-        <span class="badge rounded-pill text-bg-secondary">?</span>
-        <span class="tip-body card shadow p-2 small" role="tooltip">
+    private static Example Verdict(string left, string right, bool accepted) =>
+        new(left, right, accepted ? "Accepted" : "Rejected", accepted ? "text-bg-success" : "text-bg-danger");
+
+    // Scores an example pair under the current settings, in the given mode. The tooltips render on every pass, so
+    // an invalid setting is reported instead of thrown, and a library error can never take the page down.
+    private Example ScoreExample(string left, string right, JJScoringMode mode)
+    {
+        if (!SettingsValid)
+            return new(left, right, "Settings invalid", "text-bg-warning", "Fix the highlighted settings to see the score.");
+        try
+        {
+            var settings = Settings();
+            settings.Scoring.Mode = mode;
+            var score = JJMatcher.Match(left, right, scope, settings).Score;
+            return new(left, right, $"Score: {Percent(score)}", "text-bg-primary",
+                score >= 100 ? "No difference under the current rules, so this weight does not apply." : null);
+        }
+        catch (Exception exception)
+        {
+            return new(left, right, "Unavailable", "text-bg-warning", exception.Message);
+        }
+    }
+
+    private RenderFragment Tip(string key, (string Text, Example A, Example B) tip) => Tip(key, tip.Text, tip.A, tip.B);
+
+    private RenderFragment Tip(string key, string text, params Example[] examples) => @<span class="tip">
+        <button type="button" class="tip-trigger badge rounded-pill text-bg-secondary" aria-label="Help for @key" aria-describedby="tip-@key">?</button>
+        <span class="tip-body card shadow p-2 small" id="tip-@key" role="tooltip">
             <span class="d-block mb-2">@text</span>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@ScoringExampleLeft</code>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@ScoringExampleRight</code>
-            <span class="badge align-self-start text-bg-primary">Score: @ScoringExampleScore</span>
-        </span>
-    </span>;
-
-    private string ScoringExampleScore =>
-        Percent(JJMatcher.Match(ScoringExampleLeft, ScoringExampleRight, Options(), Settings()).Score);
-
-    private RenderFragment Tip((string Text, (string Left, string Right, string Verdict) A, (string Left, string Right, string Verdict) B) tip) => @<span class="tip" tabindex="0">
-        <span class="badge rounded-pill text-bg-secondary">?</span>
-        <span class="tip-body card shadow p-2 small" role="tooltip">
-            <span class="d-block mb-2">@tip.Text</span>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.A.Left</code>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.A.Right</code>
-            @if (tip.A.Verdict != "")
+            @foreach (var example in examples)
             {
-                <span class="badge align-self-start mb-2 @(tip.A.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.A.Verdict</span>
-            }
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.B.Left</code>
-            <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@tip.B.Right</code>
-            @if (tip.B.Verdict != "")
-            {
-                <span class="badge align-self-start @(tip.B.Verdict == "Accepted" ? "text-bg-success" : "text-bg-danger")">@tip.B.Verdict</span>
+                <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@example.Left</code>
+                <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@example.Right</code>
+                <span class="badge align-self-start mb-2 @example.BadgeClass">@example.Badge</span>
+                @if (example.Note is not null)
+                {
+                    <span class="d-block text-body-secondary">@example.Note</span>
+                }
             }
         </span>
     </span>;
+
+    private RenderFragment JsonEditor(Side side, string id, string label, string placeholder)
+    {
+        var status = Status(side);
+        var text = side == Side.Left ? left : right;
+        var formatError = formatErrors.GetValueOrDefault(side);
+        return @<div class="col-md-6">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <label class="form-label fw-semibold mb-0 me-auto" for="@id">@label</label>
+                <span class="json-status small @status.Css" title="@status.Detail">@status.Text</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="Pretty-print the document" disabled="@(!status.Ok)" @onclick="() => Format(side)">Format</button>
+            </div>
+            <textarea id="@id" class="form-control font-monospace json-input @(status.Ok || text.Length == 0 ? "" : "is-invalid")" spellcheck="false" placeholder="@placeholder"
+                      @bind:get="text" @bind:set="value => SetText(side, value)" @bind:event="oninput"></textarea>
+            @if (formatError is not null)
+            {
+                <div class="form-text text-danger">@formatError</div>
+            }
+        </div>;
+    }
+
+    private RenderFragment Metric(string label, string member, string value) => @<div class="col">
+        <div class="card h-100">
+            <div class="card-body py-2">
+                <div class="small text-body-secondary">@label</div>
+                <div class="fs-5 text-break">@value</div>
+                <code class="small text-body-tertiary">@member</code>
+            </div>
+        </div>
+    </div>;
+
+    private RenderFragment CopyButton(string key, MarkupString snippet)
+    {
+        var feedback = copyFeedback.GetValueOrDefault(key);
+        var css = feedback switch
+        {
+            "Copied" => "btn-success",
+            "Copy failed" => "btn-danger",
+            _ => "btn-outline-secondary"
+        };
+        return @<button type="button" class="btn btn-sm @css" @onclick="() => Copy(key, snippet)">@(feedback ?? "Copy")</button>;
+    }
+
+    private RenderFragment ValueCell(int row, Side side, JsonElement? element)
+    {
+        if (element is null) return @<span class="text-body-tertiary" aria-label="none">—</span>;
+        var text = element.Value.GetRawText();
+        var isLong = text.Length > ValuePreviewLength || text.Contains('\n');
+        var expanded = expandedValues.Contains((row, side));
+        return @<div>
+            <pre class="difference-value font-monospace small @(isLong && !expanded ? "clamped" : "")">@text</pre>
+            @if (isLong)
+            {
+                <button type="button" class="btn btn-link btn-sm p-0" @onclick="() => ToggleValue(row, side)">@(expanded ? "Show less" : "Show more")</button>
+            }
+        </div>;
+    }
+
+    private static RenderFragment PathOrDash(string? path) => path is null
+        ? @<span class="text-body-tertiary" aria-label="none">—</span>
+        : @<span>@path</span>;
+
+    private static string Invalid(string? problem) => problem is null ? "" : "is-invalid";
+
+    private static RenderFragment Feedback(string? problem) => problem is null
+        ? @<text></text>
+        : @<div class="invalid-feedback">@problem</div>;
+
+    // Settings validation mirrors JJMatchSettings.Snapshot, so nothing that reaches the library can throw there.
+    private string? MaxDepthError => maxDepth switch
+    {
+        null => "Enter a whole number.",
+        < 1 => "Must be at least 1.",
+        _ => null
+    };
+
+    private string? FuzzyThresholdError => fuzzyThreshold switch
+    {
+        null => "Enter a number.",
+        < 0 or > 1 => "Must be between 0 and 1.",
+        double value when double.IsNaN(value) => "Must be between 0 and 1.",
+        _ => null
+    };
+
+    private static string? WeightError(WeightInput weight) => weight.Value switch
+    {
+        null => "Enter a whole number.",
+        < JJScoringSettings.MinWeight or > JJScoringSettings.MaxWeight => $"Must be {JJScoringSettings.MinWeight} to {JJScoringSettings.MaxWeight}.",
+        _ => null
+    };
+
+    private bool SettingsValid => MaxDepthError is null && FuzzyThresholdError is null && weights.All(weight => WeightError(weight) is null);
+
+    private bool CanCompare => SettingsValid && Status(Side.Left).Ok && Status(Side.Right).Ok;
+
+    private string CompareHint => !SettingsValid ? "Fix the highlighted settings first."
+        : !Status(Side.Left).Ok || !Status(Side.Right).Ok ? "Both documents must be valid JSON."
+        : $"Compare the two documents ({(mac ? "⌘" : "Ctrl")}+Enter)";
+
+    private string SettingsSummary
+    {
+        get
+        {
+            var rules = new List<string>();
+            if (normalized) rules.Add("Normalized");
+            if (fuzzy) rules.Add($"Fuzzy {(fuzzyThreshold ?? 0).ToString("0.##", CultureInfo.InvariantCulture)}");
+            if (numeric) rules.Add("Numeric");
+            var parts = new[]
+            {
+                scope == JJMatchOptions.All ? "Structure and values" : scope == JJMatchOptions.StructuralMatching ? "Structure only" : "Values only",
+                $"{arrayMode} arrays",
+                normalizedNames ? "Normalized names" : "Identical names",
+                rules.Count == 0 ? "Identical values" : "Values: " + string.Join(", ", rules),
+                $"{scoringMode} scoring",
+                $"MaxDepth {maxDepth?.ToString(CultureInfo.InvariantCulture) ?? "?"}"
+            };
+            return string.Join(" · ", parts);
+        }
+    }
+
+    private string ThemeLabel => theme switch
+    {
+        "light" => "Light",
+        "dark" => "Dark",
+        _ => "Auto"
+    };
+
+    private List<(JJDifference Difference, int Row)> VisibleDifferences => result is null
+        ? new()
+        : result.Differences.Select((difference, row) => (difference, row)).Where(pair => !hiddenKinds.Contains(pair.difference.Kind)).ToList();
+
+    private static string KindBadgeClass(JJDifferenceKind kind) => kind switch
+    {
+        JJDifferenceKind.Missing => "text-bg-danger",
+        JJDifferenceKind.Added => "text-bg-warning",
+        JJDifferenceKind.TypeMismatch => "text-bg-danger",
+        JJDifferenceKind.ValueMismatch => "text-bg-primary",
+        _ => "text-bg-secondary"
+    };
+
+    private static string KindButtonClass(JJDifferenceKind kind) => kind switch
+    {
+        JJDifferenceKind.Missing => "btn-danger",
+        JJDifferenceKind.Added => "btn-warning",
+        JJDifferenceKind.TypeMismatch => "btn-danger",
+        JJDifferenceKind.ValueMismatch => "btn-primary",
+        _ => "btn-secondary"
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var init = await JS.InvokeAsync<JsonElement>("jj.init");
+                theme = init.GetProperty("theme").GetString() ?? "auto";
+                mac = init.GetProperty("mac").GetBoolean();
+                StateHasChanged();
+            }
+            catch (JSException)
+            {
+            }
+        }
+        if (revealResults)
+        {
+            revealResults = false;
+            try
+            {
+                await JS.InvokeVoidAsync("jj.revealResults");
+            }
+            catch (JSException)
+            {
+            }
+        }
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey)) Compare();
+    }
+
+    private async Task CycleTheme()
+    {
+        theme = theme switch
+        {
+            "auto" => "light",
+            "light" => "dark",
+            _ => "auto"
+        };
+        try
+        {
+            await JS.InvokeVoidAsync("jj.setTheme", theme);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private void LoadExample()
+    {
+        left = ExampleLeft;
+        right = ExampleRight;
+        formatErrors.Clear();
+        result = null;
+        error = null;
+    }
+
+    private void Clear()
+    {
+        left = "";
+        right = "";
+        formatErrors.Clear();
+        result = null;
+        error = null;
+    }
+
+    private void SetText(Side side, string? value)
+    {
+        if (side == Side.Left) left = value ?? ""; else right = value ?? "";
+        formatErrors.Remove(side);
+    }
+
+    private void OnFuzzyChanged()
+    {
+        // A disabled input cannot be corrected, so an invalid threshold is reset when Fuzzy is turned off.
+        if (!fuzzy && FuzzyThresholdError is not null) fuzzyThreshold = new JJMatchSettings().FuzzyThreshold;
+    }
+
+    private void SetScoringMode(JJScoringMode mode)
+    {
+        scoringMode = mode;
+        // Weights are disabled under Standard, so an invalid one is reset to its default rather than left stuck.
+        if (mode != JJScoringMode.Weighted)
+        {
+            foreach (var weight in weights)
+            {
+                if (WeightError(weight) is not null) weight.Value = weight.Default;
+            }
+        }
+    }
+
+    private void ToggleKind(JJDifferenceKind kind)
+    {
+        if (!hiddenKinds.Remove(kind)) hiddenKinds.Add(kind);
+    }
+
+    private void ToggleValue(int row, Side side)
+    {
+        if (!expandedValues.Remove((row, side))) expandedValues.Add((row, side));
+    }
+
+    // Syntax check of one document, cached per text instance so typing does not re-parse an unchanged side.
+    private JsonStatus Status(Side side)
+    {
+        var text = side == Side.Left ? left : right;
+        if (statusCache.TryGetValue(side, out var cached) && ReferenceEquals(cached.Text, text)) return cached.Status;
+        var status = CheckJson(text);
+        statusCache[side] = (text, status);
+        return status;
+    }
+
+    private static JsonStatus CheckJson(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return new(false, "Empty", "Paste a JSON document.", "text-body-tertiary");
+        try
+        {
+            using var document = JsonDocument.Parse(text, new JsonDocumentOptions { MaxDepth = int.MaxValue });
+            var lines = text.AsSpan().Count('\n') + 1;
+            return new(true, $"Valid JSON · {lines.ToString(CultureInfo.InvariantCulture)} {(lines == 1 ? "line" : "lines")}", null, "text-success");
+        }
+        catch (JsonException exception)
+        {
+            var where = exception.LineNumber is long line ? $" (line {(line + 1).ToString(CultureInfo.InvariantCulture)})" : "";
+            return new(false, $"Invalid JSON{where}", exception.Message, "text-danger");
+        }
+    }
+
+    private void Format(Side side)
+    {
+        var text = side == Side.Left ? left : right;
+        try
+        {
+            using var document = JsonDocument.Parse(text, new JsonDocumentOptions { MaxDepth = int.MaxValue });
+            // The relaxed encoder keeps non-ASCII text and quotes readable; the output is only shown in the text area.
+            var pretty = JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            });
+            if (side == Side.Left) left = pretty; else right = pretty;
+            formatErrors.Remove(side);
+        }
+        catch (JsonException exception)
+        {
+            formatErrors[side] = $"Cannot format: {exception.Message}";
+        }
+    }
 
     private void Compare()
     {
+        if (!CanCompare) return;
         result = null;
         error = null;
+        hiddenKinds.Clear();
+        expandedValues.Clear();
         try
         {
-            result = JJMatcher.Match(left, right, Options(), Settings());
+            result = JJMatcher.Match(left, right, scope, Settings());
+            resultWeighted = scoringMode == JJScoringMode.Weighted;
         }
         catch (Exception exception)
         {
             error = $"{exception.GetType().Name}: {exception.Message}";
         }
+        revealResults = true;
     }
 
-    // All is zero in the library, so selecting neither option is the same as selecting both.
-    private JJMatchOptions Options()
-    {
-        var options = JJMatchOptions.All;
-        if (structuralMatching) options |= JJMatchOptions.StructuralMatching;
-        if (valueMatching) options |= JJMatchOptions.ValueMatching;
-        return options;
-    }
-
+    // Only called with valid inputs: SettingsValid guards every caller.
     private JJMatchSettings Settings()
     {
         var valueMode = JJValueMatchingMode.None;
@@ -441,30 +826,31 @@ else if (result is not null)
             ArrayMode = arrayMode,
             ValueMode = valueMode,
             PropertyNameMode = normalizedNames ? JJPropertyNameMatchingMode.Normalized : JJPropertyNameMatchingMode.None,
-            FuzzyThreshold = fuzzyThreshold,
-            MaxDepth = maxDepth,
+            FuzzyThreshold = fuzzyThreshold!.Value,
+            MaxDepth = maxDepth!.Value,
             Scoring =
             {
                 Mode = scoringMode,
-                MissingWeight = missingWeight,
-                AddedWeight = addedWeight,
-                TypeMismatchWeight = typeMismatchWeight,
-                ValueMismatchWeight = valueMismatchWeight,
-                PropertyNameCaseMismatchWeight = propertyNameCaseMismatchWeight,
-                ValueCaseMismatchWeight = valueCaseMismatchWeight
+                MissingWeight = Weight(nameof(JJScoringSettings.MissingWeight)),
+                AddedWeight = Weight(nameof(JJScoringSettings.AddedWeight)),
+                TypeMismatchWeight = Weight(nameof(JJScoringSettings.TypeMismatchWeight)),
+                ValueMismatchWeight = Weight(nameof(JJScoringSettings.ValueMismatchWeight)),
+                PropertyNameCaseMismatchWeight = Weight(nameof(JJScoringSettings.PropertyNameCaseMismatchWeight)),
+                ValueCaseMismatchWeight = Weight(nameof(JJScoringSettings.ValueCaseMismatchWeight))
             }
         };
     }
+
+    private int Weight(string name) => weights.First(weight => weight.Name == name).Value!.Value;
 
     // The C# code that reproduces the selected settings, built from the same values Compare uses.
     // Rendered as highlighted HTML; every token is an identifier or keyword, so no escaping is needed.
     private MarkupString Snippet()
     {
-        var options = Options();
         var settings = Settings();
-        var optionsText = options == JJMatchOptions.All
+        var optionsText = scope == JJMatchOptions.All
             ? Member(nameof(JJMatchOptions), nameof(JJMatchOptions.All))
-            : Flags<JJMatchOptions>(options);
+            : Flags<JJMatchOptions>(scope);
         var valueModeText = settings.ValueMode == JJValueMatchingMode.None
             ? Member(nameof(JJValueMatchingMode), nameof(JJValueMatchingMode.None))
             : Flags<JJValueMatchingMode>(settings.ValueMode);
@@ -525,17 +911,22 @@ else if (result is not null)
             """);
     }
 
-    // Copies a rendered snippet as plain text. Every tag is a highlighting span around plain tokens, so stripping
-    // the tags gives the text as displayed. Without clipboard access the snippet still selects whole on click.
-    private async Task Copy(MarkupString snippet)
+    // Copies a rendered snippet as plain text and reports the outcome on the button for a moment. Every tag is a
+    // highlighting span around plain tokens, so stripping the tags gives the text as displayed.
+    private async Task Copy(string key, MarkupString snippet)
     {
+        var copied = false;
         try
         {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", Regex.Replace(snippet.Value, "<[^>]+>", ""));
+            copied = await JS.InvokeAsync<bool>("jj.copy", Regex.Replace(snippet.Value, "<[^>]+>", ""));
         }
         catch (JSException)
         {
         }
+        copyFeedback[key] = copied ? "Copied" : "Copy failed";
+        StateHasChanged();
+        await Task.Delay(1500);
+        copyFeedback.Remove(key);
     }
 
     // Writes a non-zero flags value as "Type.A | Type.B" in declaration order.
@@ -559,6 +950,4 @@ else if (result is not null)
 
     private static string Percent(double? value) =>
         value is null ? "n/a" : value.Value.ToString("R", CultureInfo.InvariantCulture) + "%";
-
-    private static string Raw(JsonElement? element) => element?.GetRawText() ?? "";
 }
