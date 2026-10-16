@@ -604,6 +604,64 @@
     "fuzzyAssignment": ["Jon Smyth", "Jon Smith"],
     "nestedStringified": { "payload": "{ \"a\": 1 }", "reordered": "{\"tags\":[\"y\",\"x\"],\"id\":7}", "changed": "{\"status\":\"closed\",\"id\":7}" },
     "invalidText": "not json",
-    "propertyNames": { "ID": 1, " Name ": "Ali", "postal_code": "V6B", "café": true, "items": [{ "Sku": "A" }, { "sku": "B" }] }
+    "propertyNames": { "ID": 1, " Name ": "Ali", "postal_code": "V6B", "café": true, "items": [{ "Sku": "A" }, { "sku": "B" }] },
+    "playground": {
+      "order": {
+        "paid": false,
+        "id": "ORD-1042",
+        "cancelledAt": null,
+        "note": "Leave at door",
+        "total": 30.0,
+        "customer": { "contact": "John Smith", "city": "Tacoma", "name": "alice chen", "nick": "John" },
+        "delivery": [3],
+        "coupon": "WELCOME"
+      },
+      "names": {
+        "ZipCode": "98101",
+        " phone ": "555-0100",
+        "cafe\u0301": true,
+        "SKU": "A",
+        "tag": "b",
+        "tag": "a",
+        "tag": "c"
+      },
+      "arrays": {
+        "items": [{ "sku": "PEN", "quantity": 2 }, { "sku": "BOOK", "quantity": 3 }],
+        "codes": ["a", "b", "b"],
+        "mixed": [{ "a": 1 }, { "c": 3 }],
+        "matrix": [[2, 1], [3]],
+        "empty": {}
+      },
+      "values": {
+        "word": "recieve",
+        "fruit": "orange",
+        "unicode": "cafe\u0301",
+        "blank": "  ",
+        "emoji": "🚀",
+        "count": 2,
+        "flag": true,
+        "nothing": null
+      },
+      "numbers": {
+        "sci": 1000,
+        "zero": 0.0,
+        "huge": 10E399,
+        "big": 9007199254740992
+      },
+      "stringified": {
+        "payload": "{\"b\": [2, 1], \"a\": 1}",
+        "changed": "{\"status\": \"closed\"}",
+        "nested": "{\"inner\": \"{\\\"x\\\": 2}\"}",
+        "padded": "{\"k\": 1}",
+        "text": "[oops"
+      },
+      "paths": {
+        "a.b": 2,
+        "price (USD)": 2,
+        "": 2,
+        "名前": 2
+      },
+      "deep": { "l1": { "l2": { "l3": { "l4": { "l5": "bottom" } } } } }
+    }
   }
 }

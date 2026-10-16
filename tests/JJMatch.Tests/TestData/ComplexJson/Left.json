@@ -853,6 +853,64 @@
     "fuzzyAssignment": ["Jhon Smiht", "Jon Smith"],
     "nestedStringified": { "payload": "{\"a\":1}", "reordered": "{\"id\":7,\"tags\":[\"x\",\"y\"]}", "changed": "{\"id\":7,\"status\":\"open\"}" },
     "invalidText": "{",
-    "propertyNames": { "id": 1, "name": "Ali", "postalCode": "V6B", "café": true, "items": [{ "sku": "A" }, { "SKU": "B" }] }
+    "propertyNames": { "id": 1, "name": "Ali", "postalCode": "V6B", "café": true, "items": [{ "sku": "A" }, { "SKU": "B" }] },
+    "playground": {
+      "order": {
+        "id": "ORD-1042",
+        "paid": true,
+        "cancelledAt": null,
+        "note": null,
+        "total": 30,
+        "customer": { "name": "  Alice Chen  ", "city": "Seattle", "contact": "Jon Smith", "nick": "Jon" },
+        "delivery": { "days": 3, "window": "morning" },
+        "legacy": { "code": "L1", "flags": [true, false] }
+      },
+      "names": {
+        "zipCode": "98101",
+        "phone": "555-0100",
+        "café": true,
+        "sku": "A",
+        "SKU": "A",
+        "tag": "a",
+        "tag": "b"
+      },
+      "arrays": {
+        "items": [{ "sku": "BOOK", "quantity": 1 }, { "sku": "PEN", "quantity": 2 }],
+        "codes": ["a", "a", "b"],
+        "mixed": [{ "a": 1 }, { "b": 2 }],
+        "matrix": [[1, 2], []],
+        "empty": {}
+      },
+      "values": {
+        "word": "receive",
+        "fruit": "apple",
+        "unicode": "café",
+        "blank": "",
+        "emoji": "\uD83D\uDE80",
+        "count": "2",
+        "flag": "true",
+        "nothing": "null"
+      },
+      "numbers": {
+        "sci": 1e3,
+        "zero": -0,
+        "huge": 1e400,
+        "big": 9007199254740993
+      },
+      "stringified": {
+        "payload": "{\"a\": 1, \"b\": [1, 2]}",
+        "changed": "{\"status\": \"open\"}",
+        "nested": "{\"inner\": \"{\\\"x\\\": 1}\"}",
+        "padded": "  {\"k\": 1}",
+        "text": "{oops"
+      },
+      "paths": {
+        "a.b": 1,
+        "price (USD)": 1,
+        "": 1,
+        "名前": 1
+      },
+      "deep": { "l1": { "l2": { "l3": { "l4": { "l5": "bottom" } } } } }
+    }
   }
 }
