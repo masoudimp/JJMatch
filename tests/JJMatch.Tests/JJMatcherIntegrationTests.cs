@@ -782,4 +782,205 @@ public class JJMatcherIntegrationTests
             }
         }
     }
+
+    // publicApi.playground is the pair the playground's Load example button shows. It is built so that every
+    // documented behavior is visible in one comparison and every setting changes its outcome, and these tests pin
+    // that, so the example cannot drift from the library. The expected lists below are hand-derived from the
+    // fixture text and Match.md, in the documented order: left properties in document order, each followed by
+    // the differences below it, then right-only properties.
+    private static readonly (JJDifferenceKind Kind, string? Left, string? Right)[] PlaygroundDefaults =
+    {
+        (JJDifferenceKind.ValueMismatch, "$.order.paid", "$.order.paid"),
+        (JJDifferenceKind.TypeMismatch, "$.order.note", "$.order.note"),
+        (JJDifferenceKind.ValueMismatch, "$.order.total", "$.order.total"),
+        (JJDifferenceKind.ValueCaseMismatch, "$.order.customer.name", "$.order.customer.name"),
+        (JJDifferenceKind.ValueMismatch, "$.order.customer.city", "$.order.customer.city"),
+        (JJDifferenceKind.ValueMismatch, "$.order.customer.contact", "$.order.customer.contact"),
+        (JJDifferenceKind.ValueMismatch, "$.order.customer.nick", "$.order.customer.nick"),
+        (JJDifferenceKind.TypeMismatch, "$.order.delivery", "$.order.delivery"),
+        (JJDifferenceKind.Missing, "$.order.legacy", null),
+        (JJDifferenceKind.Added, null, "$.order.coupon"),
+        (JJDifferenceKind.PropertyNameCaseMismatch, "$.names.zipCode", "$.names.ZipCode"),
+        (JJDifferenceKind.PropertyNameCaseMismatch, "$.names.phone", "$.names[' phone ']"),
+        // A combining accent is a mark, not a letter, so the decomposed spelling is not a plain name in a path.
+        (JJDifferenceKind.PropertyNameCaseMismatch, "$.names.café", "$.names['café']"),
+        (JJDifferenceKind.Missing, "$.names.sku", null),
+        (JJDifferenceKind.Added, null, "$.names.tag#3"),
+        (JJDifferenceKind.ValueMismatch, "$.arrays.items[0].quantity", "$.arrays.items[1].quantity"),
+        (JJDifferenceKind.ValueMismatch, "$.arrays.codes[1]", "$.arrays.codes[1]"),
+        (JJDifferenceKind.Missing, "$.arrays.mixed[1].b", null),
+        (JJDifferenceKind.Added, null, "$.arrays.mixed[1].c"),
+        (JJDifferenceKind.Added, null, "$.arrays.matrix[1][0]"),
+        (JJDifferenceKind.ValueMismatch, "$.values.word", "$.values.word"),
+        (JJDifferenceKind.ValueMismatch, "$.values.fruit", "$.values.fruit"),
+        (JJDifferenceKind.ValueCaseMismatch, "$.values.unicode", "$.values.unicode"),
+        (JJDifferenceKind.ValueCaseMismatch, "$.values.blank", "$.values.blank"),
+        (JJDifferenceKind.TypeMismatch, "$.values.count", "$.values.count"),
+        (JJDifferenceKind.TypeMismatch, "$.values.flag", "$.values.flag"),
+        (JJDifferenceKind.TypeMismatch, "$.values.nothing", "$.values.nothing"),
+        (JJDifferenceKind.ValueMismatch, "$.numbers.sci", "$.numbers.sci"),
+        (JJDifferenceKind.ValueMismatch, "$.numbers.zero", "$.numbers.zero"),
+        (JJDifferenceKind.ValueMismatch, "$.numbers.huge", "$.numbers.huge"),
+        (JJDifferenceKind.ValueMismatch, "$.numbers.big", "$.numbers.big"),
+        (JJDifferenceKind.ValueMismatch, "$.stringified.changed.status", "$.stringified.changed.status"),
+        (JJDifferenceKind.ValueMismatch, "$.stringified.nested.inner.x", "$.stringified.nested.inner.x"),
+        (JJDifferenceKind.ValueMismatch, "$.stringified.text", "$.stringified.text"),
+        (JJDifferenceKind.ValueMismatch, "$.paths['a.b']", "$.paths['a.b']"),
+        (JJDifferenceKind.ValueMismatch, "$.paths['price (USD)']", "$.paths['price (USD)']"),
+        (JJDifferenceKind.ValueMismatch, "$.paths['']", "$.paths['']"),
+        (JJDifferenceKind.ValueMismatch, "$.paths.名前", "$.paths.名前"),
+    };
+
+    private static IEnumerable<(JJDifferenceKind Kind, string? Left, string? Right)> Shape(JJMatchResult result) =>
+        result.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath));
+
+    private static JJMatchResult Playground(JJMatchOptions? options = null, JJMatchSettings? settings = null, bool swapped = false)
+    {
+        var left = Input("Left", "playground");
+        var right = Input("Right", "playground");
+        return swapped ? JJMatcher.Match(right, left, options, settings) : JJMatcher.Match(left, right, options, settings);
+    }
+
+    [Fact]
+    public void Playground_example_reports_every_kind_in_document_order_under_default_settings()
+    {
+        var result = Playground();
+        Consistent(result);
+        Assert.False(result.IsMatch);
+        Assert.Equal(PlaygroundDefaults, Shape(result));
+        // Every public kind is present, so each weight moves the Weighted score; identical values in another
+        // spelling (an escaped emoji, a reordered or padded stringified document, equal nulls) are not reported.
+        Assert.Equal(Enum.GetValues<JJDifferenceKind>().OrderBy(kind => kind), result.Differences.Select(d => d.Kind).Distinct().OrderBy(kind => kind));
+        Assert.Equal(3, result.Differences.Count(d => d.Kind == JJDifferenceKind.Missing));
+        Assert.Equal(4, result.Differences.Count(d => d.Kind == JJDifferenceKind.Added));
+        Assert.Equal(5, result.Differences.Count(d => d.Kind == JJDifferenceKind.TypeMismatch));
+        Assert.Equal(20, result.Differences.Count(d => d.Kind == JJDifferenceKind.ValueMismatch));
+        Assert.Equal(3, result.Differences.Count(d => d.Kind == JJDifferenceKind.ValueCaseMismatch));
+        Assert.Equal(3, result.Differences.Count(d => d.Kind == JJDifferenceKind.PropertyNameCaseMismatch));
+        // A whole subtree is one difference carrying its content; a type mismatch carries both sides, nothing below.
+        var legacy = Assert.Single(result.Differences, d => d.LeftPath == "$.order.legacy");
+        Assert.Equal(2, legacy.LeftValue!.Value.GetProperty("flags").GetArrayLength());
+        Assert.Null(legacy.RightValue);
+        var delivery = Assert.Single(result.Differences, d => d.LeftPath == "$.order.delivery");
+        Assert.Equal(System.Text.Json.JsonValueKind.Object, delivery.LeftValue!.Value.ValueKind);
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, delivery.RightValue!.Value.ValueKind);
+        Assert.DoesNotContain(result.Differences, d => d.Path.StartsWith("$.order.delivery.", StringComparison.Ordinal));
+        // Decoded stringified values are reported at the path inside the document they hold, with the inner values.
+        var nested = Assert.Single(result.Differences, d => d.LeftPath == "$.stringified.nested.inner.x");
+        Assert.Equal(1, nested.LeftValue!.Value.GetInt32());
+        Assert.Equal(2, nested.RightValue!.Value.GetInt32());
+    }
+
+    [Fact]
+    public void Playground_example_structural_scope_keeps_structure_differences_only()
+    {
+        var result = Playground(JJMatchOptions.StructuralMatching);
+        Consistent(result);
+        // true against false is one Boolean type, so paid matches; "2" against 2 is still a type mismatch.
+        Assert.Equal(PlaygroundDefaults.Where(d => d.Kind is not (JJDifferenceKind.ValueMismatch or JJDifferenceKind.ValueCaseMismatch)), Shape(result));
+        Assert.Null(result.ValueMatchPercentage);
+        Assert.Equal(result.Score, result.StructuralMatchPercentage);
+
+        var values = Playground(JJMatchOptions.ValueMatching);
+        Consistent(values);
+        Assert.Equal(PlaygroundDefaults, Shape(values));
+        Assert.Null(values.StructuralMatchPercentage);
+        Assert.Equal(values.Score, values.ValueMatchPercentage);
+
+        var both = Playground();
+        Assert.Equal(result.Score, both.StructuralMatchPercentage);
+        Assert.Equal(both.Score, both.ValueMatchPercentage);
+    }
+
+    [Fact]
+    public void Playground_example_structure_only_arrays_ignore_values_and_pair_shapes_by_shared_names()
+    {
+        var result = Playground(settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.StructureOnly });
+        Consistent(result);
+        // items and codes differ in values and counts only, so they match; {b} and {c} share no name, so they are
+        // reported whole instead of as a missing b and an added c; the right matrix collapses to one number-array
+        // shape, which pairs with [1, 2], leaving the empty inner array without a partner.
+        var expected = PlaygroundDefaults
+            .Where(d => d.Left != "$.arrays.items[0].quantity" && d.Left != "$.arrays.codes[1]" && d.Right != "$.arrays.matrix[1][0]")
+            .Select(d => d.Left == "$.arrays.mixed[1].b" ? (JJDifferenceKind.Missing, "$.arrays.mixed[1]", null)
+                : d.Right == "$.arrays.mixed[1].c" ? (JJDifferenceKind.Added, null, "$.arrays.mixed[1]")
+                : d)
+            .ToList();
+        expected.Insert(expected.FindIndex(d => d.Right == "$.arrays.mixed[1]") + 1, (JJDifferenceKind.Missing, "$.arrays.matrix[1]", null));
+        Assert.Equal(expected, Shape(result));
+    }
+
+    [Fact]
+    public void Playground_example_normalized_names_pair_case_space_and_unicode_form_but_not_a_name_the_other_side_spells_exactly()
+    {
+        var result = Playground(settings: new JJMatchSettings { PropertyNameMode = JJPropertyNameMatchingMode.Normalized });
+        Consistent(result);
+        // Under None, sku is already a Missing (the right spells SKU exactly, which the left also has), not a case
+        // pair. Under Normalized, sku and SKU are one name declared twice on the left and once on the right: the
+        // first left occurrence takes the partner and SKU is the surplus.
+        var expected = PlaygroundDefaults
+            .Where(d => d.Kind != JJDifferenceKind.PropertyNameCaseMismatch)
+            .Select(d => d.Left == "$.names.sku" ? (JJDifferenceKind.Missing, "$.names.SKU", null) : d);
+        Assert.Equal(expected, Shape(result));
+    }
+
+    [Theory]
+    [InlineData(JJValueMatchingMode.Normalized, 0.8, "$.order.customer.name", "$.values.unicode", "$.values.blank")]
+    [InlineData(JJValueMatchingMode.Fuzzy, 0.8, "$.order.customer.name", "$.values.unicode", "$.values.blank", "$.order.customer.contact", "$.values.word", "$.stringified.text")]
+    [InlineData(JJValueMatchingMode.Fuzzy, 0.75, "$.order.customer.name", "$.values.unicode", "$.values.blank", "$.order.customer.contact", "$.values.word", "$.stringified.text", "$.order.customer.nick")]
+    [InlineData(JJValueMatchingMode.Numeric, 0.8, "$.order.total", "$.numbers.sci", "$.numbers.zero", "$.numbers.huge")]
+    [InlineData(JJValueMatchingMode.Normalized | JJValueMatchingMode.Fuzzy | JJValueMatchingMode.Numeric, 0.8,
+        "$.order.customer.name", "$.values.unicode", "$.values.blank", "$.order.customer.contact", "$.values.word", "$.stringified.text",
+        "$.order.total", "$.numbers.sci", "$.numbers.zero", "$.numbers.huge")]
+    public void Playground_example_value_rules_each_accept_their_own_pairs_and_nothing_else(JJValueMatchingMode mode, double threshold, params string[] accepted)
+    {
+        // Normalized folds case, outer white space and Unicode form. Fuzzy folds the same and then allows one edit
+        // in five units: Jon/John Smith (1 in 10), receive/recieve (a transposition, 1 in 7) and the undecodable
+        // texts {oops/[oops (1 in 5, exactly the threshold) pass, Jon/John (1 in 4) only at 0.75, apple/orange
+        // (5 in 6) never. Numeric reads 30/30.0, 1e3/1000, -0/0.0 and 1e400/10E399 as one quantity each, but
+        // 9007199254740993 is not 9007199254740992. No rule coerces "2", "true" or "null" to the number, Boolean
+        // or null beside it.
+        var result = Playground(settings: new JJMatchSettings { ValueMode = mode, FuzzyThreshold = threshold });
+        Consistent(result);
+        Assert.Equal(PlaygroundDefaults.Where(d => !accepted.Contains(d.Left)), Shape(result));
+    }
+
+    [Fact]
+    public void Playground_example_deep_section_is_rejected_below_its_depth()
+    {
+        // playground > deep > l1 > l2 > l3 > l4 is six nested objects.
+        Assert.ThrowsAny<System.Text.Json.JsonException>(() => Playground(settings: new JJMatchSettings { MaxDepth = 5 }));
+        Assert.Equal(PlaygroundDefaults, Shape(Playground(settings: new JJMatchSettings { MaxDepth = 6 })));
+    }
+
+    [Fact]
+    public void Playground_example_weighted_score_discounts_by_kind_and_swapping_changes_only_the_weighted_score()
+    {
+        var standard = Playground();
+        var weighted = Playground(settings: new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted } });
+        Consistent(weighted);
+        Assert.Equal(Shape(standard), Shape(weighted));
+        Assert.True(weighted.Score > standard.Score);
+        Assert.All(standard.Differences, d => Assert.Equal(JJScoringSettings.MaxWeight, d.ScoreWeight));
+        var defaults = new JJScoringSettings();
+        Assert.All(weighted.Differences, d => Assert.Equal(d.Kind switch
+        {
+            JJDifferenceKind.Missing => defaults.MissingWeight,
+            JJDifferenceKind.Added => defaults.AddedWeight,
+            JJDifferenceKind.TypeMismatch => defaults.TypeMismatchWeight,
+            JJDifferenceKind.ValueMismatch => defaults.ValueMismatchWeight,
+            JJDifferenceKind.PropertyNameCaseMismatch => defaults.PropertyNameCaseMismatchWeight,
+            _ => defaults.ValueCaseMismatchWeight
+        }, d.ScoreWeight));
+
+        // Swapping the documents turns every Missing into an Added and back: the Standard score is symmetric, the
+        // Weighted one is not because MissingWeight and AddedWeight differ.
+        var swappedStandard = Playground(swapped: true);
+        var swappedWeighted = Playground(settings: new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted } }, swapped: true);
+        Assert.Equal(standard.Score, swappedStandard.Score);
+        Assert.NotEqual(weighted.Score, swappedWeighted.Score);
+        Assert.Equal(standard.Differences.Count, swappedStandard.Differences.Count);
+        Assert.Equal(standard.Differences.Count(d => d.Kind == JJDifferenceKind.Missing), swappedStandard.Differences.Count(d => d.Kind == JJDifferenceKind.Added));
+        Assert.Equal(standard.Differences.Count(d => d.Kind == JJDifferenceKind.Added), swappedStandard.Differences.Count(d => d.Kind == JJDifferenceKind.Missing));
+    }
 }
