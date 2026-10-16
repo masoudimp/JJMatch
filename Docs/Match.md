@@ -56,7 +56,7 @@ The facade translates these internal categories into `JJDifferenceKind`; the con
 ## Behavior
 
 - A full match has zero differences. Any structural difference, however small, makes `IsMatch` `false`.
-- `Value` is never read. A string holding stringified JSON is a `String` leaf like any other and is never parsed.
+- `Value` is never read, and no string is parsed here. A string holding stringified JSON is a `String` leaf like any other, unless `Traverse` already decoded it into the object or array it holds, as it does for `JJMatcher.Match` (see `Traverse.md`).
 - Types are the JSON kinds, with `True` and `False` as one Boolean type. Every other kind matches only itself: a number against a string, `null` against anything else, and an object against an array are each a `TypeMismatch`.
 - Nothing below a `TypeMismatch` is compared or reported. The two nodes carry their subtrees.
 - Object properties are paired by name, in any order. Names are compared ordinally, without case folding or Unicode normalization, as `Traverse` stores them; the configured overload relaxes this only under `PropertyNameMode.Normalized`, described above.

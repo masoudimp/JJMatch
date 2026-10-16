@@ -13,6 +13,7 @@ Captures the structure and the primitive values of a document in one pass, in a 
 - `JsonElement element`: the element to walk, of any value kind. `default(JsonElement)`, whose kind is `Undefined`, is accepted too.
 - `string? propertyName`: the name the element is held under. Callers leave it out; the recursion supplies it for object properties.
 - Optional internal `ComparisonBudget`: counts every visited node and polls cancellation. Public Match supplies it; parsing depth follows `JJMatchSettings.MaxDepth`, which has no upper bound. Existing internal callers may omit it.
+- Optional `int stringifiedDepth`: how many levels deep a string at this element may decode to. `0`, the default, decodes nothing. Public Match passes `JJMatchSettings.MaxDepth`; each object or array level passes one less to its children.
 - Returns the `JsonStructureNode` for the element. `JsonStructureNode.cs` lives in this folder.
 
 | Property | Type | Content |
@@ -35,6 +36,7 @@ Nodes are immutable: every property is set by the constructor and has no setter.
 - Names are the decoded names the parser returns, compared and stored without normalization: escapes, control characters and supplementary characters are decoded, and case and Unicode form are kept as written.
 - Strings are stored decoded: an escaped spelling (`caf\u00e9`, `\uD83D\uDE80`, `\t`, `\"`, `\\`) and the literal one give the same `Value`.
 - A string's `Value` is always decoded text, never raw JSON text. A lone surrogate escape (`"\uD800"`, `"\uDC00"`), which the parser accepts but `GetString` rejects, is decoded by `Traverse` itself from the raw text: each `\u` escape becomes the UTF-16 unit it names, whether or not it forms a pair, so the value is kept exactly and a lone surrogate inside other text stays in place. The same applies to property names, which `JsonProperty.Name` rejects in the same way: the object's UTF-8 text is read again for its names only, which are decoded by the same rule; this costs nothing for names that decode normally, and is slow for those that do not (see Known limitations in `Docs/Decisions.md`). A string whose UTF-8 bytes are invalid cannot be represented and keeps its node of kind `String` with `Value` `null`; `Traverse` does not throw for it, so the rest of the document is still walked.
+- With a positive `stringifiedDepth`, a string whose decoded text, after leading JSON white space, starts with `{` or `[` and parses within `stringifiedDepth` levels is replaced by the node of the document it holds, under the same property name, and that document is walked by these same rules, so strings inside it are decoded too. The whole tree therefore stays within `JJMatchSettings.MaxDepth` levels. Every other string stays a `String` node: other text (`"hello"`, `"123"`), content that does not parse (`"{"`) or is too deep, and a string `GetString` rejects. The decoded document is disposed before `Traverse` returns.
 - Numbers are stored as their raw text, exactly as written: `123456789012345678901234567890`, `1.5E+10` and `1.0` are kept digit for digit. Nothing is converted to `double` or `decimal`, so no precision is lost, and nothing is normalized: `1.0` and `1`, or `1.5E+10` and `15000000000`, are different `Value`s. Deciding whether they are equal belongs to the implemented value rules in `MatchValues.md`.
 - `true`, `false` and `null` have no `Value`; `ValueKind` (`True`, `False`, `Null`) carries them. `True` and `False` stay distinct kinds; treating them as one Boolean type is a structural matching rule.
 - `ValueKind` keeps values apart that share a `Value`: the number `3` and the string `"3"`, the string `""` and `null`, `{}` and `[]`.
@@ -57,6 +59,8 @@ Nodes are immutable: every property is set by the constructor and has no setter.
 - Numbers are not validated or interpreted beyond what the parser accepted.
 
 ## Tests
+
+Decoding of stringified values is covered end to end by `JJMatcherIntegrationTests.Stringified_object_or_array_value_is_compared_as_the_json_it_holds` (`publicApi.nestedStringified`).
 
 `tests/JJMatch.Tests/JsonStructure/TraverserTests.cs` calls `Traverse` directly on sections of `Left.json` and `Right.json`:
 
