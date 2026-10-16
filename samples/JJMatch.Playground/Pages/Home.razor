@@ -12,7 +12,8 @@
 
 <header class="toolbar d-flex flex-wrap align-items-center gap-2 py-2 mb-3 border-bottom">
     <h1 class="h4 mb-0 me-auto">JJMatch Playground</h1>
-    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="LoadExample">Load example</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" title="Load the documented example pair" @onclick="LoadExample">Load example</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" title="Exchange the two documents" @onclick="Swap" disabled="@(left.Length == 0 && right.Length == 0)">Swap</button>
     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="Clear" disabled="@(left.Length == 0 && right.Length == 0 && result is null && error is null)">Clear</button>
     <button type="button" class="btn btn-primary" @onclick="Compare" disabled="@(!CanCompare)" title="@CompareHint">Compare</button>
     <span class="small text-body-secondary d-none d-md-inline" aria-hidden="true"><kbd>@(mac ? "⌘" : "Ctrl")</kbd> + <kbd>Enter</kbd></span>
@@ -361,33 +362,22 @@ else if (result is not null)
             Object("\"name\": \"Ann\",\n  \"city\": \"Oslo\""), Object("\"name\": \"Ann\",\n  \"city\": \"oslo\"")),
     };
 
-    // The guide's worked example: reordered items, a case-only name, a fuzzy contact, a numeric total, a missing and
-    // an added property, and two changed values, so every rule and weight has something to act on.
-    private const string ExampleLeft = """
-        {
-          "orderId": "ORD-1042",
-          "currency": "USD",
-          "customer": { "name": "  Alice Chen  ", "city": "Seattle", "contact": "Jon Smith" },
-          "items": [{ "sku": "BOOK", "quantity": 1 }, { "sku": "PEN", "quantity": 2 }],
-          "total": 30,
-          "paid": true,
-          "delivery": { "days": 3, "note": "Leave at door" },
-          "legacyCode": null
-        }
-        """;
+    // The Load example pair is publicApi.playground of the test fixtures, embedded by the project file and pinned by
+    // JJMatcherIntegrationTests: every documented behavior shows in one comparison, and every setting changes its
+    // outcome. The raw fixture text is kept, escapes included, so what the page shows is what the tests compare.
+    private static readonly Lazy<(string Left, string Right)> ExamplePair = new(() => (ExampleSection("Left"), ExampleSection("Right")));
 
-    private const string ExampleRight = """
-        {
-          "orderId": "ORD-1042",
-          "currency": "USD",
-          "customer": { "name": "alice chen", "city": "Seattle", "contact": "John Smith" },
-          "items": [{ "sku": "PEN", "quantity": 2 }, { "sku": "BOOK", "quantity": 1 }],
-          "total": 30.0,
-          "paid": false,
-          "delivery": { "days": 5, "note": "Leave at door" },
-          "coupon": "WELCOME"
-        }
-        """;
+    private static string ExampleSection(string side)
+    {
+        using var stream = typeof(Home).Assembly.GetManifestResourceStream($"Fixtures.{side}.json")
+            ?? throw new InvalidOperationException($"The {side} fixture is not embedded.");
+        using var reader = new StreamReader(stream);
+        // The fixture envelope holds a 100-level stress array, hence the depth; the section itself is shallow.
+        using var document = JsonDocument.Parse(reader.ReadToEnd(), new JsonDocumentOptions { MaxDepth = 128 });
+        var section = document.RootElement.GetProperty("publicApi").GetProperty("playground").GetRawText();
+        // The section sits two levels into the fixture; its continuation lines carry that indentation.
+        return section.Replace("\n    ", "\n");
+    }
 
     // One tooltip per setting: what it does, then two pairs of documents showing both outcomes.
     private static readonly (string Text, Example A, Example B)
@@ -507,6 +497,7 @@ else if (result is not null)
                 <label class="form-label fw-semibold mb-0 me-auto" for="@id">@label</label>
                 <span class="json-status small @status.Css" title="@status.Detail">@status.Text</span>
                 <button type="button" class="btn btn-sm btn-outline-secondary" title="Pretty-print the document" disabled="@(!status.Ok)" @onclick="() => Format(side)">Format</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="Wrap the document in a JSON string, which is decoded again when compared" disabled="@(!status.Ok)" @onclick="() => Stringify(side)">Stringify</button>
             </div>
             <textarea id="@id" class="form-control font-monospace json-input @(status.Ok || text.Length == 0 ? "" : "is-invalid")" spellcheck="false" placeholder="@placeholder"
                       @bind:get="text" @bind:set="value => SetText(side, value)" @bind:event="oninput"></textarea>
@@ -697,11 +688,28 @@ else if (result is not null)
 
     private void LoadExample()
     {
-        left = ExampleLeft;
-        right = ExampleRight;
+        (left, right) = ExamplePair.Value;
         formatErrors.Clear();
         result = null;
         error = null;
+    }
+
+    // Expected and response change places. Missing and Added swap, which is visible in the Weighted score.
+    private void Swap()
+    {
+        (left, right) = (right, left);
+        formatErrors.Clear();
+        result = null;
+        error = null;
+    }
+
+    // Wraps the document in a JSON string, which the library decodes again: the root may be stringified too.
+    private void Stringify(Side side)
+    {
+        var text = side == Side.Left ? left : right;
+        var stringified = JsonSerializer.Serialize(text, new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        if (side == Side.Left) left = stringified; else right = stringified;
+        formatErrors.Remove(side);
     }
 
     private void Clear()

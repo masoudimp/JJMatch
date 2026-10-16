@@ -19,4 +19,11 @@
     <ProjectReference Include="..\..\src\JJMatch\JJMatch.csproj" />
   </ItemGroup>
 
+  <!-- The Load example pair is publicApi.playground of the test fixtures, so the pair the page shows is the one
+       JJMatcherIntegrationTests pins, and the two cannot drift apart. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\tests\JJMatch.Tests\TestData\ComplexJson\Left.json" LogicalName="Fixtures.Left.json" />
+    <EmbeddedResource Include="..\..\tests\JJMatch.Tests\TestData\ComplexJson\Right.json" LogicalName="Fixtures.Right.json" />
+  </ItemGroup>
+
 </Project>
