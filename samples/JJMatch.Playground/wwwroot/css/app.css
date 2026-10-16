@@ -1,6 +1,55 @@
-.json-input {
+:root {
+    --jj-kw: #0000ff;
+    --jj-ty: #267f99;
+    --jj-num: #098658;
+    --jj-pn: #0451a5;
+    --jj-str: #a31515;
+    --jj-toolbar-height: 3.5rem;
+}
+
+[data-bs-theme="dark"] {
+    --jj-kw: #569cd6;
+    --jj-ty: #4ec9b0;
+    --jj-num: #b5cea8;
+    --jj-pn: #9cdcfe;
+    --jj-str: #ce9178;
+}
+
+/* The toolbar holds Compare, so it stays reachable however long the inputs and settings are. */
+.toolbar {
+    background: var(--bs-body-bg);
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+.toolbar kbd {
+    font-size: 0.75em;
+}
+
+/* The toolbar heading receives focus on navigation for assistive technology; the ring adds nothing visually. */
+.toolbar h1:focus {
+    outline: none;
+}
+
+/* Element plus class, to outrank Bootstrap's own textarea.form-control minimum height. */
+textarea.json-input {
     font-size: 0.9rem;
-    min-height: 22rem !important;
+    min-height: 14rem;
+    resize: vertical;
+}
+
+@media (min-width: 768px) {
+    textarea.json-input {
+        min-height: 22rem;
+    }
+}
+
+.json-status {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .number-input {
@@ -17,24 +66,33 @@
     border-radius: var(--bs-card-inner-border-radius);
 }
 
-.tip {
-    cursor: help;
+.settings-summary {
+    font-weight: 400;
 }
 
-/* Positioned against the settings section, so it stays inside the column whatever the icon's place in it. */
+.tip {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.tip-trigger {
+    border: 0;
+    cursor: help;
+    line-height: 1;
+}
+
+/* Positioned by js/app.js next to its trigger, inside the viewport. */
 .tip-body {
     display: none;
     flex-direction: column;
-    left: 1rem;
-    margin-top: 0.25rem;
-    max-width: 22rem;
-    position: absolute;
-    right: 1rem;
-    z-index: 10;
+    max-width: min(24rem, calc(100vw - 1rem));
+    position: fixed;
+    text-align: left;
+    width: max-content;
+    z-index: 1030;
 }
 
-.tip:hover .tip-body,
-.tip:focus .tip-body {
+.tip-body.show {
     display: flex;
 }
 
@@ -52,33 +110,57 @@
 }
 
 .snippet .kw {
-    color: #0000ff;
+    color: var(--jj-kw);
 }
 
 .snippet .ty {
-    color: #267f99;
+    color: var(--jj-ty);
 }
 
 .snippet .num {
-    color: #098658;
+    color: var(--jj-num);
 }
 
 .snippet .pn {
-    color: #0451a5;
+    color: var(--jj-pn);
 }
 
 .snippet .str {
-    color: #a31515;
+    color: var(--jj-str);
 }
 
-.compare-btn {
-    position: sticky;
-    top: 0.5rem;
-    z-index: 20;
+.results {
+    scroll-margin-top: calc(var(--jj-toolbar-height) + 0.5rem);
 }
 
 .error {
     white-space: pre-wrap;
+}
+
+.kind-chip[aria-pressed="false"] {
+    opacity: 0.55;
+    text-decoration: line-through;
+}
+
+/* Minimum widths keep paths and values readable; a narrow screen scrolls the table instead of squeezing it. */
+.difference-path {
+    min-width: 12rem;
+    overflow-wrap: anywhere;
+}
+
+.difference-value {
+    margin: 0;
+    min-width: 10rem;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+/* A long value shows its first lines and fades out until expanded. */
+.difference-value.clamped {
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent);
+    mask-image: linear-gradient(to bottom, black 60%, transparent);
+    max-height: 6.5em;
+    overflow: hidden;
 }
 
 #blazor-error-ui {
