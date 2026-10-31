@@ -76,10 +76,12 @@
                     <div class="form-check mt-3">
                         <input class="form-check-input" type="checkbox" id="structural-score" @bind="includeStructuralScore" />
                         <label class="form-check-label" for="structural-score">Compute separate structural score</label>
+                        @Tip("structural-score", StructuralScoreTip)
                     </div>
                     <div class="form-check mt-2">
                         <input class="form-check-input" type="checkbox" id="decode-json" @bind="decodeStringifiedJson" />
                         <label class="form-check-label" for="decode-json">Decode strings containing JSON objects or arrays</label>
+                        @Tip("decode-json", DecodeJsonTip)
                     </div>
                 </div>
             </details>
@@ -469,7 +471,13 @@ else if (result is not null)
             Verdict(Object("\"name\": \"John Smith\""), Object("\"name\": \"Totally Different\""), false)),
         NumericTip = ("Numbers match as quantities, however they are written.",
             Verdict(Object("\"age\": 30"), Object("\"age\": 30.0"), true),
-            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), false));
+            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), false)),
+        StructuralScoreTip = ("Also scores the two documents by structure alone and reports it as Structural score in the diagnostics. Unchecked skips that extra comparison. Checked, a value difference keeps the structural score full while a type difference lowers it:",
+            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), true),
+            Verdict(Object("\"age\": 30"), Object("\"age\": \"30\""), false)),
+        DecodeJsonTip = ("A string holding a JSON object or array is decoded and compared as that object or array, at the root and at every level inside the documents. Checked:",
+            Verdict(Object("\"user\": \"{\\\"age\\\": 30}\""), Object("\"user\": { \"age\": 30 }"), true),
+            Verdict(Object("\"user\": \"{\\\"age\\\": 30}\""), Object("\"user\": \"age: 30\""), false));
 
     // The scoring mode tips share one pair holding a TypeMismatch and a Missing difference, scored under each mode.
     private static readonly string ModeExampleLeft = Object("\"name\": \"Ann\",\n  \"age\": 30,\n  \"city\": \"Oslo\"");
