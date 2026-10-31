@@ -165,3 +165,6 @@ Measured with a short job (.NET 10, macOS, Apple M5) before and after the 2026-1
 `Assignment_agrees_with_exhaustive_search_including_all_tie_breaks` enumerates every partial injection independently of the Hungarian algorithm: 21,297 matrices of dimensions 1 through 3 (forbidden, partial and identical pairs), plus 2,000 seeded weighted rectangular matrices up to 5 by 5, including zero-benefit pairs. It checks matched counts, identical-pair and pair-count preferences, and the entire document-order partner vector. These are numerical solver inputs, not generated JSON.
 
 `Structural_equivalence_agrees_with_an_independent_recursive_relation` compares every pair of `core` sections against a recursive object-multiset and array-set equality relation that uses neither production signatures nor assignment costs. Agreement is bounded evidence, not a proof for every input or for future weighted scoring.
+
+
+Public configuration also accepts `Mode`, independent `StringComparison` / `NumberComparison`, and nested `Limits`. These map to the existing matching rules; no assignment or score algorithm changes. Explicit legacy options override Mode. `IncludeStructuralScore = false` skips the extra diagnostic comparison. See the current Guide and configuration decision of 2026-10-31.

@@ -1,5 +1,7 @@
 # Score semantics
 
+For configuration and presets, see the [quick guide](../Guide.md). This reference uses the internal/legacy policy names: Strict is `ArrayComparison.Unordered`, StructureOnly arrays are `ArrayComparison.DistinctShapes`, and StructuralMatching is `Mode = StructureOnly`.
+
 ## Selected measure and research
 
 JJMatch uses the **Sørensen–Dice coefficient**, expressed as a percentage, over a maximum one-to-one correspondence of JSON nodes permitted by the selected matching rules:
@@ -71,7 +73,7 @@ Score = 100 × 2 × MaxWeight × M / (2 × MaxWeight × M + Σ over differences 
 | `[]` vs `{}` | 0 | 0 | `2 × 10 = 20` against `0` |
 | `publicApi.nested` fixtures (city, `old`, `nullable` and the added array `[1]`) | 62.5 | `10000 / 134` = 74.626… | `2 × 6 + 2 × 8 + 2 × 3 = 34` against `100` |
 | Same fixtures with `AddedWeight = 10` | 62.5 | `10000 / 148` = 67.567… | the added array weighs its two nodes: `12 + 16 + 20` |
-| Guide pair, Strict, default values | 70 | `28000 / 351` = 79.772… | `5 × 2 × 6 + 8 + 3 = 71` against `280` |
+| [Worked order pair](Configuration.md#2-the-example-documents), Strict, default values | 70 | `28000 / 347` = 80.691… | `4 × 2 × 6 + 1 × 2 × 4 + 8 + 3 = 67` against `280`; the normalized-equal name is a ValueCaseMismatch |
 | `publicApi.propertyNames`, `PropertyNameMode = None` (id/ID, name/" Name ", café's two Unicode forms and the two skus fold together; postalCode/postal_code do not) | 40 | `8000 / 131` = 61.068… | `5 × 2 × 4 + 8 + 3 = 51` against `80` |
 
 ## Limits of interpretation
@@ -84,4 +86,4 @@ Normalized and Fuzzy relax only strings and Numeric only numbers. Identical prim
 
 Resource limits fail the operation instead of returning an approximation. Cancellation is cooperative and the work budget is an implementation allowance, not a time or memory guarantee. Parsing and individual runtime operations such as Unicode normalization or cloning a snapshot are bounded by input limits but cannot be interrupted midway. Arrays and repeated names are assigned as groups, which costs one comparison per candidate pair; groups are capped at `MaxAssignmentSize` before allocating assignment matrices, so a Strict array longer than the cap fails the operation. The public depth and node caps bound recursion and integer score arithmetic. Internal legacy calls without a budget retain their previous unrestricted behavior.
 
-`StructuralMatchPercentage` recomputes structure-only similarity under the same array policy and scoring mode. `ValueMatchPercentage` is the main value-aware document Score, including required structural context; it is not a separate component to average with the structural score. These diagnostic properties do not change the three-output contract.
+`Diagnostics.StructuralScore` (also exposed by legacy `StructuralMatchPercentage`) reports structure-only similarity under the same array policy and scoring mode. Set `IncludeStructuralScore = false` to skip this diagnostic and return null; it remains enabled by default for compatibility. `ValueMatchPercentage` is the main value-aware document Score, including required structural context; it is not a separate component to average with the structural score. These diagnostic properties do not change the three-output contract.

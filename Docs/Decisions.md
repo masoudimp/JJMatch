@@ -1,5 +1,20 @@
 # JJMatch Decisions
 
+## Compatible configuration simplification (2026-10-31)
+
+- Preserve all existing expected test results, public signatures, enum values, defaults and matching/scoring algorithms. Legacy API remains available without Obsolete warnings, including for consumers treating warnings as errors.
+- Prefer one `JJMatchSettings` argument. `Mode` selects Full or StructureOnly; an explicitly supplied legacy options argument takes precedence. `IncludeStructuralScore` independently controls the diagnostic pass and defaults to true.
+- StringComparison and NumberComparison project the existing ValueMode flags; assigning either changes only its own category. Fuzzy includes normalization. Limits and legacy top-level properties share one state, copied into each comparison snapshot.
+- Default, Normalized and StructureOnly presets return fresh instances, including nested objects. Normalized uses normalized strings and numeric quantities without fuzzy matching or normalized names.
+- ArrayComparison offers Unordered and DistinctShapes, mapped to legacy ArrayMode.Strict and StructureOnly. The old enum remains exactly two members, preserving its enumeration contract and all existing assertions.
+- Expose auxiliary result data through Diagnostics while retaining all legacy result properties. No diagnostic is removed from default calls.
+- DecodeStringifiedJson defaults to true and can be disabled for root and nested strings. No matching engine algorithm changes.
+- ToJson exports minimal canonical settings including scope. By default inactive fuzzy thresholds and scoring weights are omitted; includeInactiveSettings preserves them. FromJson accepts old and new forms, supports every scoring weight, and rejects mixing legacy value/limit fields with their new forms. Config export preserves behavior, not redundant legacy flags.
+- Playground offers presets, independent text/number controls, advanced diagnostics/weights, and exports through ToJson. Clipboard decodes HTML entities so copied literals remain valid.
+- Guide is the short entry point; Docs/Configuration.md retains the detailed worked examples and prior API reference. Existing tests and fixtures are unchanged; new tests use their existing document sections.
+
+This entry supersedes the earlier Playground export details below: exports now omit all default values, including default weights under Weighted, and store scope in the settings object. Legacy properties remain callable and are marked advanced in IntelliSense.
+
 ## The playground omits the `Scoring` block under Standard — 2026-10-31
 
 The user noticed that the playground's C# snippet and `JJSetting.json` preview always carried the whole `Scoring` object, weights included, even with Standard selected, and asked whether it is needed there. It is not: `JJMatchSettings.Scoring` defaults to `Mode = Standard` with the default weights, and the weights are ignored under Standard, so a configuration without the block gives the same result. Both generators in `Home.razor` now append the `Scoring` block only when Weighted is selected; under Standard the snippets end at `MaxDepth`. Under Weighted the block is unchanged and still lists all six weights, default or not, because those are the values being tuned. The library is untouched and no test moved. This supersedes "both the C# snippet and the `JJSetting.json` preview now carry the whole `Scoring` object" in the 2026-10-12 entry below.
