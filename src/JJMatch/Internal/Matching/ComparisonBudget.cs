@@ -18,20 +18,20 @@ internal sealed class ComparisonBudget
     internal void Spend(long work = 1)
     {
         _cancellationToken.ThrowIfCancellationRequested();
-        if (work > _remaining) throw new InvalidOperationException("Comparison exceeded JJMatchSettings.MaxWork.");
+        if (work > _remaining) throw new InvalidOperationException($"Comparison exceeded JJMatchSettings.MaxWork ({_settings.MaxWork}); next operation needs {work} units with {_remaining} remaining.");
         _remaining -= work;
     }
 
     internal void VisitNode()
     {
         Spend();
-        if (++_nodes > _settings.MaxNodes) throw new InvalidOperationException("Comparison exceeded JJMatchSettings.MaxNodes.");
+        if (++_nodes > _settings.MaxNodes) throw new InvalidOperationException($"Comparison exceeded JJMatchSettings.MaxNodes ({_settings.MaxNodes}); visited {_nodes} nodes.");
     }
 
     internal void Assignment(int left, int right)
     {
         Spend((long)left * right);
         if (Math.Max(left, right) > _settings.MaxAssignmentSize)
-            throw new InvalidOperationException("Comparison exceeded JJMatchSettings.MaxAssignmentSize. Increase the limit.");
+            throw new InvalidOperationException($"Comparison exceeded JJMatchSettings.MaxAssignmentSize ({_settings.MaxAssignmentSize}); group sizes are {left} and {right}. Increase Limits.MaxAssignmentSize up to 256.");
     }
 }

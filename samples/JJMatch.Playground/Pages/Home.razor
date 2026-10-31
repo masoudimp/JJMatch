@@ -27,9 +27,17 @@
     @JsonEditor(Side.Right, "right", "LLM response JSON", "{ \"name\": \"Ann\", \"age\": 31 }")
 </div>
 
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3" role="group" aria-label="Starting settings">
+    <span class="fw-semibold">Start with:</span>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyPreset(JJMatchSettings.Default)">Default / reset</button>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyPreset(JJMatchSettings.Normalized)">Normalized text and numbers</button>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ApplyPreset(JJMatchSettings.StructureOnly)">Structure only</button>
+</div>
+<p class="form-text">Defaults ignore array order, preserve repeated elements, and decode strings containing JSON objects or arrays. Customize below.</p>
+
 <details class="drawer card mb-3">
 <summary class="card-header">
-    <span class="fw-semibold me-1">Settings</span>
+    <span class="fw-semibold me-1">Customize settings</span>
     @if (!SettingsValid)
     {
         <span class="badge text-bg-danger me-1">Invalid</span>
@@ -47,26 +55,34 @@
                 <legend class="fs-6 fw-semibold mb-1">Compare</legend>
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="scope" id="scope-all" checked="@(scope == JJMatchOptions.All)" @onchange="() => scope = JJMatchOptions.All" />
-                    <label class="form-check-label" for="scope-all">Both <span class="small text-body-secondary">structure and values</span></label>
+                    <label class="form-check-label" for="scope-all">Full <span class="small text-body-secondary">structure and values</span></label>
                     @Tip("scope-all", AllTip)
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="scope" id="scope-structural" checked="@(scope == JJMatchOptions.StructuralMatching)" @onchange="() => scope = JJMatchOptions.StructuralMatching" />
-                    <label class="form-check-label" for="scope-structural">StructuralMatching <span class="small text-body-secondary">values ignored</span></label>
+                    <label class="form-check-label" for="scope-structural">Structure only <span class="small text-body-secondary">values ignored</span></label>
                     @Tip("scope-structural", StructuralTip)
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="scope" id="scope-value" checked="@(scope == JJMatchOptions.ValueMatching)" @onchange="() => scope = JJMatchOptions.ValueMatching" />
-                    <label class="form-check-label" for="scope-value">ValueMatching <span class="small text-body-secondary">values in context</span></label>
-                    @Tip("scope-value", ValueTip)
                 </div>
             </fieldset>
 
+            <details>
+                <summary>Advanced: limits and diagnostics</summary>
+                <div class="mt-3">
             <label class="form-label fw-semibold mb-1" for="max-depth">MaxDepth</label>
             @Tip("max-depth", MaxDepthTip)
             <input class="form-control form-control-sm number-input @Invalid(MaxDepthError)" type="number" id="max-depth" min="1" step="1" inputmode="numeric" aria-describedby="max-depth-help" @bind="maxDepth" @bind:event="oninput" />
             @Feedback(MaxDepthError)
             <div id="max-depth-help" class="form-text">Deepest nesting allowed, at least 1.</div>
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="structural-score" @bind="includeStructuralScore" />
+                        <label class="form-check-label" for="structural-score">Compute separate structural score</label>
+                    </div>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="decode-json" @bind="decodeStringifiedJson" />
+                        <label class="form-check-label" for="decode-json">Decode strings containing JSON objects or arrays</label>
+                    </div>
+                </div>
+            </details>
         </section>
     </div>
 
@@ -78,12 +94,12 @@
                 <legend class="fs-6 fw-semibold mb-1">Arrays</legend>
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="arrays" id="arrays-strict" checked="@(arrayMode == JJArrayMatchingMode.Strict)" @onchange="() => arrayMode = JJArrayMatchingMode.Strict" />
-                    <label class="form-check-label" for="arrays-strict">Strict <span class="small text-body-secondary">values and count</span></label>
+                    <label class="form-check-label" for="arrays-strict">Unordered <span class="small text-body-secondary">values and repeated elements count</span></label>
                     @Tip("arrays-strict", StrictTip)
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="arrays" id="arrays-structure" checked="@(arrayMode == JJArrayMatchingMode.StructureOnly)" @onchange="() => arrayMode = JJArrayMatchingMode.StructureOnly" />
-                    <label class="form-check-label" for="arrays-structure">StructureOnly <span class="small text-body-secondary">shapes only</span></label>
+                    <label class="form-check-label" for="arrays-structure">Distinct shapes <span class="small text-body-secondary">ignores values and repeated shapes</span></label>
                     @Tip("arrays-structure", StructureOnlyTip)
                 </div>
             </fieldset>
@@ -111,35 +127,38 @@
 
             <fieldset class="mb-3">
                 <legend class="fs-6 fw-semibold mb-1">Match rules</legend>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" id="values-normalized" @bind="normalized" />
-                    <label class="form-check-label" for="values-normalized">Normalized</label>
-                    @Tip("values-normalized", NormalizedTip)
-                </div>
-                <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" id="values-fuzzy" @bind="fuzzy" @bind:after="OnFuzzyChanged" />
-                    <label class="form-check-label" for="values-fuzzy">Fuzzy</label>
-                    @Tip("values-fuzzy", FuzzyTip)
-                </div>
+                <label for="strings" class="form-label">Strings</label>
+                <select id="strings" class="form-select mb-2" @bind="SelectedStringComparison">
+                    <option value="@JJStringComparison.Exact">Exact text</option>
+                    <option value="@JJStringComparison.Normalized">Normalized: ignore case and outer whitespace</option>
+                    <option value="@JJStringComparison.Fuzzy">Fuzzy: also accept small typos</option>
+                </select>
+                @Tip("values-normalized", NormalizedTip)
+                @Tip("values-fuzzy", FuzzyTip)
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="checkbox" id="values-numeric" @bind="numeric" />
-                    <label class="form-check-label" for="values-numeric">Numeric</label>
+                    <label class="form-check-label" for="values-numeric">Compare numbers by quantity (1 = 1.0)</label>
                     @Tip("values-numeric", NumericTip)
                 </div>
-                <div class="form-text">Identical values always match. Selected rules are combined with OR.</div>
+                <div class="form-text">Identical values always match. String and number rules are independent.</div>
             </fieldset>
 
+            @if (fuzzy)
+            {
             <label class="form-label fw-semibold mb-1" for="fuzzy-threshold">FuzzyThreshold</label>
             @Tip("fuzzy-threshold", FuzzyThresholdTip)
             <input class="form-control form-control-sm number-input @Invalid(FuzzyThresholdError)" type="number" id="fuzzy-threshold" min="0" max="1" step="0.05" inputmode="decimal" aria-describedby="fuzzy-threshold-help" disabled="@(!fuzzy)" @bind="fuzzyThreshold" @bind:event="oninput" />
             @Feedback(FuzzyThresholdError)
             <div id="fuzzy-threshold-help" class="form-text">0 to 1, the least similarity Fuzzy accepts. Used only when Fuzzy is selected.</div>
+            }
         </section>
     </div>
 
     <div class="col-12">
         <section class="border rounded p-3 h-100">
-            <h2 class="text-uppercase small fw-semibold text-body-secondary mb-3">Scoring</h2>
+            <details>
+            <summary class="fw-semibold">Advanced: scoring weights</summary>
+            <p class="form-text">Weights change only the score. Different Missing and Added weights make the score depend on input direction.</p>
 
             <fieldset class="mb-3">
                 <legend class="fs-6 fw-semibold mb-1">Mode</legend>
@@ -155,6 +174,8 @@
                 </div>
             </fieldset>
 
+            @if (scoringMode == JJScoringMode.Weighted)
+            {
             <div class="row g-3">
                 @foreach (var weight in weights)
                 {
@@ -167,6 +188,8 @@
                 }
             </div>
             <div class="form-text">@JJScoringSettings.MinWeight (least important) to @JJScoringSettings.MaxWeight (the Standard cost). Used only when Weighted is selected.</div>
+            }
+            </details>
         </section>
     </div>
 </div>
@@ -220,11 +243,14 @@ else if (result is not null)
 
         <div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
             @Metric("Score", nameof(JJMatchResult.Score), Percent(result.Score))
-            @Metric("Structural match", nameof(JJMatchResult.StructuralMatchPercentage), Percent(result.StructuralMatchPercentage))
-            @Metric("Value match", nameof(JJMatchResult.ValueMatchPercentage), Percent(result.ValueMatchPercentage))
-            @Metric("Elapsed", nameof(JJMatchResult.ElapsedMilliseconds), result.ElapsedMilliseconds.ToString("0.###", CultureInfo.InvariantCulture) + " ms")
         </div>
-
+        <details class="mb-3">
+            <summary>Diagnostics</summary>
+            <div class="row g-3 mt-1">
+                @Metric("Structural score", "Diagnostics.StructuralScore", Percent(result.Diagnostics.StructuralScore))
+                @Metric("Elapsed", "Diagnostics.ElapsedMilliseconds", result.Diagnostics.ElapsedMilliseconds.ToString("0.###", CultureInfo.InvariantCulture) + " ms")
+            </div>
+        </details>
         <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
             <h2 class="h5 mb-0 me-2">Differences <span class="badge text-bg-secondary">@result.Differences.Count</span></h2>
             @foreach (var group in result.Differences.GroupBy(difference => difference.Kind).OrderBy(group => group.Key))
@@ -300,6 +326,36 @@ else if (result is not null)
     private JJMatchOptions scope = JJMatchOptions.All;
     private JJArrayMatchingMode arrayMode = JJArrayMatchingMode.Strict;
     private bool normalized, fuzzy, numeric, normalizedNames;
+    private bool includeStructuralScore = true, decodeStringifiedJson = true;
+
+    private JJStringComparison SelectedStringComparison
+    {
+        get => fuzzy ? JJStringComparison.Fuzzy : normalized ? JJStringComparison.Normalized : JJStringComparison.Exact;
+        set
+        {
+            fuzzy = value == JJStringComparison.Fuzzy;
+            normalized = value == JJStringComparison.Normalized;
+            OnFuzzyChanged();
+        }
+    }
+
+    private void ApplyPreset(JJMatchSettings settings)
+    {
+        scope = settings.Mode == JJComparisonMode.StructureOnly ? JJMatchOptions.StructuralMatching : JJMatchOptions.All;
+        arrayMode = settings.ArrayMode;
+        SelectedStringComparison = settings.StringComparison;
+        numeric = settings.NumberComparison == JJNumberComparison.Numeric;
+        normalizedNames = settings.PropertyNameMode == JJPropertyNameMatchingMode.Normalized;
+        ignoredPrefix = settings.IgnoredPropertyPrefix ?? "";
+        maxDepth = settings.Limits.MaxDepth;
+        fuzzyThreshold = settings.FuzzyThreshold;
+        includeStructuralScore = settings.IncludeStructuralScore;
+        decodeStringifiedJson = settings.DecodeStringifiedJson;
+        scoringMode = settings.Scoring.Mode;
+        foreach (var weight in weights) weight.Value = weight.Default;
+        result = null;
+        error = null;
+    }
     private string ignoredPrefix = "";
     private int? maxDepth = new JJMatchSettings().MaxDepth;
     private double? fuzzyThreshold = new JJMatchSettings().FuzzyThreshold;
@@ -393,9 +449,6 @@ else if (result is not null)
         StructuralTip = ("Only property names, JSON types and nesting are compared. Values are ignored.",
             Verdict(Object("\"age\": 30"), Object("\"age\": 31"), true),
             Verdict(Object("\"age\": 30"), Object("\"age\": \"30\""), false)),
-        ValueTip = ("Values are compared using the Values rules, within the structure. The structural percentage is not reported separately.",
-            Verdict(Object("\"age\": 30"), Object("\"age\": 30"), true),
-            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), false)),
         MaxDepthTip = ("The deepest nesting of objects and arrays a document may have. Deeper input is rejected. At 1:",
             Verdict(Object("\"age\": 30"), Object("\"age\": 30"), true),
             Verdict(Object("\"user\": { \"age\": 30 }"), Object("\"user\": { \"age\": 30 }"), false)),
@@ -627,7 +680,7 @@ else if (result is not null)
             var parts = new[]
             {
                 scope == JJMatchOptions.All ? "Structure and values" : scope == JJMatchOptions.StructuralMatching ? "Structure only" : "Values only",
-                $"{arrayMode} arrays",
+                arrayMode == JJArrayMatchingMode.Strict ? "Unordered arrays" : "Distinct array shapes",
                 (normalizedNames ? "Normalized names" : "Identical names") + (ignoredPrefix.Length == 0 ? "" : $", ignoring {ignoredPrefix}…"),
                 rules.Count == 0 ? "Identical values" : "Values: " + string.Join(", ", rules),
                 $"{scoringMode} scoring",
@@ -842,7 +895,7 @@ else if (result is not null)
         expandedValues.Clear();
         try
         {
-            result = JJMatcher.Match(left, right, scope, Settings());
+            result = JJMatcher.Match(left, right, settings: Settings());
             resultWeighted = scoringMode == JJScoringMode.Weighted;
         }
         catch (Exception exception)
@@ -855,14 +908,14 @@ else if (result is not null)
     // Only called with valid inputs: SettingsValid guards every caller.
     private JJMatchSettings Settings()
     {
-        var valueMode = JJValueMatchingMode.None;
-        if (normalized) valueMode |= JJValueMatchingMode.Normalized;
-        if (fuzzy) valueMode |= JJValueMatchingMode.Fuzzy;
-        if (numeric) valueMode |= JJValueMatchingMode.Numeric;
         return new JJMatchSettings
         {
+            Mode = scope == JJMatchOptions.StructuralMatching ? JJComparisonMode.StructureOnly : JJComparisonMode.Full,
+            IncludeStructuralScore = includeStructuralScore,
+            DecodeStringifiedJson = decodeStringifiedJson,
             ArrayMode = arrayMode,
-            ValueMode = valueMode,
+            StringComparison = SelectedStringComparison,
+            NumberComparison = numeric ? JJNumberComparison.Numeric : JJNumberComparison.Exact,
             PropertyNameMode = normalizedNames ? JJPropertyNameMatchingMode.Normalized : JJPropertyNameMatchingMode.None,
             IgnoredPropertyPrefix = ignoredPrefix.Length == 0 ? null : ignoredPrefix,
             FuzzyThreshold = fuzzyThreshold!.Value,
@@ -882,90 +935,41 @@ else if (result is not null)
 
     private int Weight(string name) => weights.First(weight => weight.Name == name).Value!.Value;
 
-    // The C# code that reproduces the selected settings, built from the same values Compare uses.
-    // Rendered as highlighted HTML; every token is an identifier, keyword, number or escaped literal, so no further
-    // escaping is needed.
+    // Both exports use the library's canonical configuration, including scope and diagnostics.
     private MarkupString Snippet()
     {
-        var settings = Settings();
-        var optionsText = scope == JJMatchOptions.All
-            ? Member(nameof(JJMatchOptions), nameof(JJMatchOptions.All))
-            : Flags<JJMatchOptions>(scope);
-        var valueModeText = settings.ValueMode == JJValueMatchingMode.None
-            ? Member(nameof(JJValueMatchingMode), nameof(JJValueMatchingMode.None))
-            : Flags<JJValueMatchingMode>(settings.ValueMode);
-        var arrayModeText = Member(nameof(JJArrayMatchingMode), settings.ArrayMode.ToString());
-        var nameModeText = Member(nameof(JJPropertyNameMatchingMode), settings.PropertyNameMode.ToString());
-        var varKeyword = Keyword("var");
-        var newKeyword = Keyword("new");
-        // The prefix defaults to null, so the line is only shown when one is typed.
-        var prefixText = settings.IgnoredPropertyPrefix is null ? "" : $"\n    IgnoredPropertyPrefix = {Literal(settings.IgnoredPropertyPrefix)},";
-        // Scoring defaults to Standard and the weights are ignored under it, so the block is only shown for Weighted.
-        // Two dollar signs: {{ }} interpolates, so the single braces of the object initializer are literal.
-        var scoringText = settings.Scoring.Mode == JJScoringMode.Weighted
-            ? $$"""
-            ,
-                Scoring =
-                {
-                    Mode = {{Member(nameof(JJScoringMode), nameof(JJScoringMode.Weighted))}},
-                    MissingWeight = {{Number(settings.Scoring.MissingWeight)}},
-                    AddedWeight = {{Number(settings.Scoring.AddedWeight)}},
-                    TypeMismatchWeight = {{Number(settings.Scoring.TypeMismatchWeight)}},
-                    ValueMismatchWeight = {{Number(settings.Scoring.ValueMismatchWeight)}},
-                    PropertyNameCaseMismatchWeight = {{Number(settings.Scoring.PropertyNameCaseMismatchWeight)}},
-                    ValueCaseMismatchWeight = {{Number(settings.Scoring.ValueCaseMismatchWeight)}}
-                }
-            """
-            : "";
-        return new MarkupString($$"""
-            {{varKeyword}} settings = {{newKeyword}} {{Type(nameof(JJMatchSettings))}}
-            {
-                ArrayMode = {{arrayModeText}},
-                ValueMode = {{valueModeText}},
-                PropertyNameMode = {{nameModeText}},{{prefixText}}
-                FuzzyThreshold = {{Number(settings.FuzzyThreshold)}},
-                MaxDepth = {{Number(settings.MaxDepth)}}{{scoringText}}
-            };
-            {{varKeyword}} result = {{Type(nameof(JJMatcher))}}.Match(expectedJson, llmResponseJson, {{optionsText}}, settings);
-            """);
+        using var document = JsonDocument.Parse(Settings().ToJson());
+        var properties = document.RootElement.EnumerateObject().ToArray();
+        if (properties.Length == 0)
+            return new MarkupString("var result = JJMatcher.Match(expectedJson, llmResponseJson);");
+        var code = "var settings = new JJMatchSettings\n{\n" + Initializer(document.RootElement, "", 4)
+            + "\n};\nvar result = JJMatcher.Match(expectedJson, llmResponseJson, settings: settings);";
+        return new MarkupString(System.Net.WebUtility.HtmlEncode(code));
     }
 
-    // The JJSetting.json that JJMatchSettings.FromJson reads back into the same settings. Rendered as highlighted
-    // HTML; names are identifiers and values are member names, digits or escaped literals, so no further escaping
-    // is needed.
-    private MarkupString SettingsJson()
+    private static string Initializer(JsonElement element, string section, int indent)
     {
-        var settings = Settings();
-        var valueModeText = settings.ValueMode == JJValueMatchingMode.None
-            ? nameof(JJValueMatchingMode.None)
-            : settings.ValueMode.ToString().Replace(", ", " | ");
-        // The prefix defaults to null, so the property is only shown when one is typed.
-        var prefixText = settings.IgnoredPropertyPrefix is null ? "" : $"\n  {Name(nameof(JJMatchSettings.IgnoredPropertyPrefix))}: {Literal(settings.IgnoredPropertyPrefix)},";
-        // Scoring defaults to Standard and the weights are ignored under it, so the object is only shown for Weighted.
-        var scoringText = settings.Scoring.Mode == JJScoringMode.Weighted
-            ? $$"""
-            ,
-              {{Name(nameof(JJMatchSettings.Scoring))}}: {
-                {{Name(nameof(JJScoringSettings.Mode))}}: {{Text(nameof(JJScoringMode.Weighted))}},
-                {{Name(nameof(JJScoringSettings.MissingWeight))}}: {{Number(settings.Scoring.MissingWeight)}},
-                {{Name(nameof(JJScoringSettings.AddedWeight))}}: {{Number(settings.Scoring.AddedWeight)}},
-                {{Name(nameof(JJScoringSettings.TypeMismatchWeight))}}: {{Number(settings.Scoring.TypeMismatchWeight)}},
-                {{Name(nameof(JJScoringSettings.ValueMismatchWeight))}}: {{Number(settings.Scoring.ValueMismatchWeight)}},
-                {{Name(nameof(JJScoringSettings.PropertyNameCaseMismatchWeight))}}: {{Number(settings.Scoring.PropertyNameCaseMismatchWeight)}},
-                {{Name(nameof(JJScoringSettings.ValueCaseMismatchWeight))}}: {{Number(settings.Scoring.ValueCaseMismatchWeight)}}
-              }
-            """
-            : "";
-        return new MarkupString($$"""
+        return string.Join(",\n", element.EnumerateObject().Select(property =>
+        {
+            var padding = new string(' ', indent);
+            if (property.Value.ValueKind == JsonValueKind.Object)
+                return padding + property.Name + " =\n" + padding + "{\n"
+                    + Initializer(property.Value, property.Name, indent + 4) + "\n" + padding + "}";
+            var enumType = property.Name switch
             {
-              {{Name(nameof(JJMatchSettings.ArrayMode))}}: {{Text(settings.ArrayMode.ToString())}},
-              {{Name(nameof(JJMatchSettings.ValueMode))}}: {{Text(valueModeText)}},
-              {{Name(nameof(JJMatchSettings.PropertyNameMode))}}: {{Text(settings.PropertyNameMode.ToString())}},{{prefixText}}
-              {{Name(nameof(JJMatchSettings.FuzzyThreshold))}}: {{Number(settings.FuzzyThreshold)}},
-              {{Name(nameof(JJMatchSettings.MaxDepth))}}: {{Number(settings.MaxDepth)}}{{scoringText}}
-            }
-            """);
+                "Mode" => section == "Scoring" ? "JJScoringMode" : "JJComparisonMode",
+                "ArrayComparison" => "JJArrayComparison",
+                "StringComparison" => "JJStringComparison",
+                "NumberComparison" => "JJNumberComparison",
+                "PropertyNameMode" => "JJPropertyNameMatchingMode",
+                _ => null
+            };
+            var value = enumType is null ? property.Value.GetRawText() : enumType + "." + property.Value.GetString();
+            return padding + property.Name + " = " + value;
+        }));
     }
+
+    private MarkupString SettingsJson() => new(System.Net.WebUtility.HtmlEncode(Settings().ToJson()));
 
     // Copies a rendered snippet as plain text and reports the outcome on the button for a moment. Every tag is a
     // highlighting span around plain tokens, so stripping the tags gives the text as displayed.
@@ -974,7 +978,7 @@ else if (result is not null)
         var copied = false;
         try
         {
-            copied = await JS.InvokeAsync<bool>("jj.copy", Regex.Replace(snippet.Value, "<[^>]+>", ""));
+            copied = await JS.InvokeAsync<bool>("jj.copy", System.Net.WebUtility.HtmlDecode(Regex.Replace(snippet.Value, "<[^>]+>", "")));
         }
         catch (JSException)
         {
@@ -984,28 +988,6 @@ else if (result is not null)
         await Task.Delay(1500);
         copyFeedback.Remove(key);
     }
-
-    // Writes a non-zero flags value as "Type.A | Type.B" in declaration order.
-    private static string Flags<T>(T value) where T : struct, Enum
-    {
-        var number = Convert.ToInt64(value, CultureInfo.InvariantCulture);
-        var parts = Enum.GetValues<T>()
-            .Where(member => Convert.ToInt64(member, CultureInfo.InvariantCulture) is var bit && bit != 0 && (number & bit) == bit)
-            .Select(member => Member(typeof(T).Name, member.ToString()));
-        return string.Join(" | ", parts);
-    }
-
-    private static string Keyword(string text) => $"<span class=\"kw\">{text}</span>";
-    private static string Type(string text) => $"<span class=\"ty\">{text}</span>";
-    private static string Member(string type, string member) => Type(type) + "." + member;
-    private static string Number(int value) => $"<span class=\"num\">{value.ToString(CultureInfo.InvariantCulture)}</span>";
-    // "R" keeps every digit of the value, so the snippet reproduces the exact threshold the comparison used.
-    private static string Number(double value) => $"<span class=\"num\">{value.ToString("R", CultureInfo.InvariantCulture)}</span>";
-    private static string Name(string text) => $"<span class=\"pn\">\"{text}\"</span>";
-    private static string Text(string text) => $"<span class=\"str\">\"{text}\"</span>";
-    // A typed string as a quoted literal, escaped the JSON way, which C# reads identically. The default encoder also
-    // escapes every character the HTML parser cares about, so the markup stays safe whatever is typed.
-    private static string Literal(string text) => $"<span class=\"str\">{JsonSerializer.Serialize(text)}</span>";
 
     private static string Percent(double? value) =>
         value is null ? "n/a" : value.Value.ToString("R", CultureInfo.InvariantCulture) + "%";

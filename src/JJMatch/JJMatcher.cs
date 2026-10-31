@@ -10,8 +10,8 @@ public static class JJMatcher
     /// <summary>Compares two JSON documents and returns their similarity and differences.</summary>
     /// <param name="json1">The left JSON document. Any valid JSON root is accepted.</param>
     /// <param name="json2">The right JSON document.</param>
-    /// <param name="options">Use StructuralMatching to ignore primitive values; null or All compares structure and values.</param>
-    /// <param name="settings">Optional array, value and property name rules, scoring configuration and resource limits. Defaults to Strict arrays, identical values, identical names and Standard scoring.</param>
+    /// <param name="options">Legacy scope override. When omitted, settings.Mode selects full or structure-only comparison.</param>
+    /// <param name="settings">Optional comparison scope, array, value and property name rules, diagnostics, scoring configuration and resource limits. Defaults to Strict arrays, identical values, identical names and Standard scoring.</param>
     /// <param name="cancellationToken">Cancels comparison cooperatively.</param>
     /// <exception cref="ArgumentNullException">An input is null.</exception>
     /// <exception cref="ArgumentException">Options or settings are invalid.</exception>
@@ -24,21 +24,22 @@ public static class JJMatcher
         var stopwatch = Stopwatch.StartNew();
         if (json1 is null) throw new ArgumentNullException(nameof(json1));
         if (json2 is null) throw new ArgumentNullException(nameof(json2));
-        var flags = options ?? JJMatchOptions.All;
         const JJMatchOptions known = JJMatchOptions.StructuralMatching | JJMatchOptions.ValueMatching;
-        if ((flags & ~known) != 0) throw new ArgumentOutOfRangeException(nameof(options));
+        if (((options ?? JJMatchOptions.All) & ~known) != 0) throw new ArgumentOutOfRangeException(nameof(options));
         var config = (settings ?? new JJMatchSettings()).Snapshot();
+        var flags = options ?? (config.Mode == JJComparisonMode.StructureOnly
+            ? JJMatchOptions.StructuralMatching : JJMatchOptions.All);
         var features = flags & (JJMatchOptions.StructuralMatching | JJMatchOptions.ValueMatching);
         var compareValues = features != JJMatchOptions.StructuralMatching;
-        var structuralDiagnostics = features != JJMatchOptions.ValueMatching;
+        var structuralDiagnostics = config.IncludeStructuralScore && features != JJMatchOptions.ValueMatching;
 
         var budget = new ComparisonBudget(config, cancellationToken);
         using var leftDocument = Parse(json1, config, budget);
         using var rightDocument = Parse(json2, config, budget);
         // Strings holding a serialized object or array are compared as the document they hold, within MaxDepth overall.
         // Properties under IgnoredPropertyPrefix are left out of both trees here, so nothing below sees them.
-        var left = JsonStructureTraverser.Traverse(leftDocument.RootElement, budget: budget, stringifiedDepth: config.MaxDepth, ignoredPrefix: config.IgnoredPropertyPrefix);
-        var right = JsonStructureTraverser.Traverse(rightDocument.RootElement, budget: budget, stringifiedDepth: config.MaxDepth, ignoredPrefix: config.IgnoredPropertyPrefix);
+        var left = JsonStructureTraverser.Traverse(leftDocument.RootElement, budget: budget, stringifiedDepth: config.DecodeStringifiedJson ? config.MaxDepth : 0, ignoredPrefix: config.IgnoredPropertyPrefix);
+        var right = JsonStructureTraverser.Traverse(rightDocument.RootElement, budget: budget, stringifiedDepth: config.DecodeStringifiedJson ? config.MaxDepth : 0, ignoredPrefix: config.IgnoredPropertyPrefix);
         var cache = new ComparisonCache(config.ArrayMode, budget, config.PropertyNameMode);
         var total = StructureMatcher.CountNodes(left, config.ArrayMode, budget, cache)
             + StructureMatcher.CountNodes(right, config.ArrayMode, budget, cache);
@@ -108,10 +109,10 @@ public static class JJMatcher
     {
         budget.Spend();
         if (text.Length > settings.MaxInputLength)
-            throw new InvalidOperationException("Input exceeded JJMatchSettings.MaxInputLength.");
+            throw new InvalidOperationException($"Input exceeded JJMatchSettings.MaxInputLength ({settings.MaxInputLength}); received {text.Length} UTF-16 characters.");
         var options = new JsonDocumentOptions { MaxDepth = settings.MaxDepth };
         var document = JsonDocument.Parse(text, options);
-        if (document.RootElement.ValueKind != JsonValueKind.String) return document;
+        if (!settings.DecodeStringifiedJson || document.RootElement.ValueKind != JsonValueKind.String) return document;
         // A string root holding a serialized object or array is decoded, one layer only; strings inside it are
         // decoded by Traverse. Any other string root, undecodable or unparsable ones included, stays a literal
         // string, so every JSON root is still accepted.

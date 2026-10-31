@@ -1,331 +1,122 @@
 # JJMatch Guide
 
-Change one setting, predict what will happen, then check the result. This guide compares one order in two slightly different forms to show what each rule controls. To experiment with your own JSON, use the [JJMatch Playground](https://masoudimp.github.io/JJMatch/): it runs the library in the browser and shows the equivalent `JJMatcher.Match` call and `JJSetting.json` for the selected settings.
-
-## 1. Quick Start
+Compare two JSON documents, then read `IsMatch`, `Score`, and `Differences`.
 
 ```sh
 dotnet add package JJMatch
 ```
 
 ```csharp
-using System;
 using JJMatch;
 
-var result = JJMatcher.Match(
-    "{\"name\":\"Ann\",\"age\":30}",
-    "{\"name\":\"Ann\",\"age\":31}");
+var expectedJson = """{"name":"Ann","age":30}""";
+var actualJson = """{"name":"Ann","age":31}""";
+var result = JJMatcher.Match(expectedJson, actualJson);
 
-Console.WriteLine(result.IsMatch);           // False
-Console.WriteLine($"{result.Score:F2}%");    // 66.67% in an English culture
+Console.WriteLine(result.IsMatch);       // False
+Console.WriteLine($"{result.Score:F2}%"); // 66.67%
 foreach (var difference in result.Differences)
     Console.WriteLine($"{difference.Path}: {difference.Kind}");
 // $.age: ValueMismatch
 ```
 
-`IsMatch` tells you whether everything matches under your rules. `Score` is a percentage from 0 to 100. `Differences` explains what failed. A complete match always means **true, exactly 100, and an empty list**.
+`IsMatch` means there are no differences under your rules. `Score` is 0–100, not a probability. Format it with `F2`, not `P`. Differences retain paths and detached JSON values.
 
-The default compares exact values and counts every array element. Array element order, object property order and JSON formatting do not matter. The package targets `netstandard2.0` and `net8.0`; the examples use C# raw strings.
+Defaults compare exact values, ignore object property order and array element order, and preserve repeated array elements. Strings containing JSON objects or arrays are decoded automatically. Numbers `1` and `1.0` differ by default; strings `"1"` and numbers `1` always have different types. The package targets `netstandard2.0` and `net8.0`.
 
-## 2. The Example Documents
-
-Imagine comparing an order saved by your application with one returned by another service. Every result below uses these exact two strings.
+## Choose a starting point
 
 ```csharp
-using System;
-using System.Globalization;
-using System.Linq;
-using System.Text.Json;
-using JJMatch;
+// Ignore string case, outer whitespace and Unicode form; compare numbers by quantity.
+var settings = JJMatchSettings.Normalized;
+var result = JJMatcher.Match(expectedJson, actualJson, settings: settings);
 
-string leftJson = """
+// Ignore primitive values throughout the document.
+var structure = JJMatcher.Match(expectedJson, actualJson,
+    settings: JJMatchSettings.StructureOnly);
+```
+
+`Default`, `Normalized`, and `StructureOnly` each return a fresh, customizable settings instance. Normalized keeps property names exact and never enables fuzzy matching.
+
+## Customize only what you need
+
+```csharp
+var settings = new JJMatchSettings
 {
-  "orderId": "ORD-1042",
-  "currency": "USD",
-  "customer": { "name": "  Alice Chen  ", "city": "Seattle", "contact": "Jon Smith" },
-  "items": [{ "sku": "BOOK", "quantity": 1 }, { "sku": "PEN", "quantity": 2 }],
-  "total": 30,
-  "paid": true,
-  "delivery": { "days": 3, "note": "Leave at door" },
-  "legacyCode": null
-}
-""";
-
-string rightJson = """
-{
-  "orderId": "ORD-1042",
-  "currency": "USD",
-  "customer": { "name": "alice chen", "city": "Seattle", "contact": "John Smith" },
-  "items": [{ "sku": "PEN", "quantity": 2 }, { "sku": "BOOK", "quantity": 1 }],
-  "total": 30.0,
-  "paid": false,
-  "delivery": { "days": 5, "note": "Leave at door" },
-  "coupon": "WELCOME"
-}
-""";
-
-void Show(string label, JJMatchResult comparison)
-{
-    string kinds = string.Join(", ", comparison.Differences
-        .GroupBy(d => d.Kind).Select(g => $"{g.Count()} {g.Key}"));
-    Console.WriteLine($"{label}: IsMatch={comparison.IsMatch}, " +
-        $"Score={comparison.Score.ToString("R", CultureInfo.InvariantCulture)}%, " +
-        $"Differences={comparison.Differences.Count} [{kinds}]");
-}
+    StringComparison = JJStringComparison.Fuzzy,
+    FuzzyThreshold = 0.8,
+    NumberComparison = JJNumberComparison.Numeric,
+    IgnoredPropertyPrefix = "_"
+};
+var result = JJMatcher.Match(expectedJson, actualJson, settings: settings);
 ```
 
-The differences between the two documents, and the setting that could accept each one:
+| Setting | Choices and behavior |
+| --- | --- |
+| `Mode` | `Full` (default) or `StructureOnly` for the entire document. |
+| `StringComparison` | `Exact` (default), `Normalized`, or `Fuzzy`. Fuzzy includes normalization and can also accept changed digits in identifiers. |
+| `NumberComparison` | `Exact` token spelling (default) or `Numeric` exact quantity, without floating-point tolerance. |
+| `PropertyNameMode` | `None` for exact names (default), or `Normalized`. Independent of string values. |
+| `IgnoredPropertyPrefix` | Omit properties starting with your marker at every level. Null keeps everything; empty text is invalid. |
+| `ArrayComparison` | `Unordered` (default behavior) preserves occurrences. Advanced `DistinctShapes` ignores values and repeated shapes throughout array subtrees. Neither mode uses array order. |
 
-| Location | Left → Right | What might help? |
-| --- | --- | --- |
-| `customer.name` | `"  Alice Chen  "` → `"alice chen"` | Normalized string comparison |
-| `customer.contact` | `"Jon Smith"` → `"John Smith"` | Fuzzy string comparison |
-| `items` | BOOK, PEN → PEN, BOOK | Nothing needed: array order never matters |
-| `total` | `30` → `30.0` | Numeric comparison |
-| `paid` | `true` → `false` | A real value change |
-| `delivery.days` | `3` → `5` | A real value change |
-| `legacyCode` | Present JSON null → absent | A missing property |
-| `coupon` | Absent → `"WELCOME"` | An additional property |
+Identical values always match. Use the settings object before calling `Match`; do not mutate shared settings concurrently with a call.
 
-## 3. Settings
-
-Settings are passed as `JJMatchSettings`. `ArrayMode` controls how arrays are paired, `ValueMode` is a set of flags that decides which primitive values are accepted, `PropertyNameMode` decides how property names are paired, and `Scoring` decides how the score is computed from the result. `JJMatchOptions.StructuralMatching` ignores primitive values altogether.
+## Save and load configuration
 
 ```csharp
-Show("A", JJMatcher.Match(leftJson, rightJson));
-
-Show("B", JJMatcher.Match(leftJson, rightJson,
-    settings: new JJMatchSettings { ArrayMode = JJArrayMatchingMode.StructureOnly }));
-
-Show("F", JJMatcher.Match(leftJson, rightJson,
-    settings: new JJMatchSettings
-    {
-        ValueMode = JJValueMatchingMode.Numeric
-            | JJValueMatchingMode.Normalized
-    }));
-
-Show("G", JJMatcher.Match(leftJson, rightJson, JJMatchOptions.StructuralMatching));
+File.WriteAllText("JJSetting.json", settings.ToJson());
+var loaded = JJMatchSettings.FromJson(File.ReadAllText("JJSetting.json"));
+var result = JJMatcher.Match(expectedJson, actualJson, settings: loaded);
 ```
 
-Results on the example pair. Scores use invariant `"R"` formatting, the full round-trip representation of the returned `double`.
-
-| ID | Configuration | IsMatch | Score (%) | Differences |
-| --- | --- | --- | ---: | --- |
-| A | Default: Strict, identical values | `false` | `70` | **7**: 4 ValueMismatch, 1 ValueCaseMismatch, 1 Missing, 1 Added |
-| B | StructureOnly | `false` | `64.70588235294117` | **7**: 4 ValueMismatch, 1 ValueCaseMismatch, 1 Missing, 1 Added |
-| C | Strict + Numeric | `false` | `75` | **6**: 3 ValueMismatch, 1 ValueCaseMismatch, 1 Missing, 1 Added |
-| D | Strict + Normalized | `false` | `75` | **6**: 4 ValueMismatch, 1 Missing, 1 Added |
-| E | Strict + Fuzzy | `false` | `80` | **5**: 3 ValueMismatch, 1 Missing, 1 Added |
-| F | Strict + Numeric \| Normalized | `false` | `80` | **5**: 3 ValueMismatch, 1 Missing, 1 Added |
-| G | StructuralMatching, Strict arrays | `false` | `95` | **2**: 1 Missing, 1 Added |
-| H | F plus Fuzzy | `false` | `85` | **4**: 2 ValueMismatch, 1 Missing, 1 Added |
-
-Every row keeps the missing `legacyCode` and the added `coupon`, so no setting produces a full match. What each row shows:
-
-- **A, Strict arrays.** Array elements pair wherever they stand, so BOOK and PEN each find their exact partner although the two documents list them in a different order. Counts still matter: every occurrence can match only once, and JJMatch compares whole items rather than treating `sku` or `id` as a key.
-- **B, StructureOnly arrays.** Both item objects have the same shape, so each array contributes one shape and the values below arrays are ignored. The score differs from A because fewer nodes are counted (section 4).
-- **C, Numeric.** `30` and `30.0` now match. Numeric relaxes numbers only. Identical values **always** match, whatever is selected: a rule only accepts further pairs, so the identical strings here still match.
-- **D, Normalized.** Strings match after trimming outer white space, Unicode NFC normalization and ignoring case. Internal spaces, punctuation and accents are kept. Strings only. `customer.name` folds to equal under this rule, which is why rows A, B and C report it as the lighter `ValueCaseMismatch` instead of a full `ValueMismatch`: it is the same rejected-pair check, applied regardless of `ValueMode`, to recognize a pair that Normalized would have accepted.
-- **E, Fuzzy.** Small typos are accepted: two strings match when their similarity, one minus the edits per character of the longer folded text, is at least `FuzzyThreshold`, where an edit is an insertion, deletion, replacement or adjacent swap. The default threshold is 0.8, one edit for every five characters: `"Jon"` vs `"John"` allows 0 edits and fails; `"Jon Smith"` vs `"John Smith"` allows 2 and matches. Set `FuzzyThreshold = 0.75` and `"Jon"` matches `"John"` too; set it to 1 and only Normalized-equal strings match. Fuzzy can accept changed digits inside strings, so leave it off for identifiers. Strings only.
-- **F and H, combined rules.** A value matches when **any** selected rule accepts it. This is a practical starting point for mixed JSON where numeric spelling, case and outer white space should not matter.
-- **G, StructuralMatching.** Names, types and container structure are compared, primitive values are ignored. Unlike the StructureOnly array mode in B, this applies to the whole document.
-
-Value rules never touch property names. Identical names always pair, and the default `JJPropertyNameMatchingMode.None` pairs nothing else. `PropertyNameMode = JJPropertyNameMatchingMode.Normalized` pairs names with the same trimming, NFC and case-insensitive rule as Normalized values, so `name` pairs with `Name` while `postalCode` still does not pair with `postal_code`. It applies under every option, including `StructuralMatching`, and names of one object that become equal under it are treated as duplicate property names.
-
-Some properties should not take part at all: a comment written by hand, a token count or model name the LLM adds, or any bookkeeping you mark with a prefix of your own. `IgnoredPropertyPrefix` is that prefix: there is no built-in one, you choose the text in the settings, whether `_`, `*`, `$`, `__` or a word like `ignore_`. Every property whose name starts with it is removed from both documents before they are compared, at every level and inside decoded stringified values too, so such a property is never reported as a difference and never counted in the score, whether it differs, exists on one side only or is identical. The prefix is matched as written, before the name rule: `"_"` removes `_id` and a name that is exactly `_`, `"__"` removes `__typename` but keeps `_id`, `"*"` removes `*note` but keeps `_id`, `"ignore_"` removes `ignore_reason` but keeps `ignored`, and under Normalized names ` _x` with a leading space is still kept. Null, the default, keeps every property; the empty string is rejected, since it would remove them all.
-
-```csharp
-Show("Prefix, default", JJMatcher.Match("""{"name":"Ali","_comment":"expected"}""", """{"name":"Ali","_comment":"generated","_tokens":12}"""));
-// false / 57.142857142857146 / ValueMismatch $._comment, Added $._tokens
-Show("Prefix, _", JJMatcher.Match("""{"name":"Ali","_comment":"expected"}""", """{"name":"Ali","_comment":"generated","_tokens":12}""",
-    settings: new JJMatchSettings { IgnoredPropertyPrefix = "_" }));
-// true / 100 / 0
-Show("Prefix, *", JJMatcher.Match("""{"name":"Ali","*note":"expected"}""", """{"name":"Ali","*note":"generated","*tokens":12}""",
-    settings: new JJMatchSettings { IgnoredPropertyPrefix = "*" }));
-// true / 100 / 0
-Show("Prefix, * on _ names", JJMatcher.Match("""{"name":"Ali","_comment":"expected"}""", """{"name":"Ali","_comment":"generated","_tokens":12}""",
-    settings: new JJMatchSettings { IgnoredPropertyPrefix = "*" }));
-// false / 57.142857142857146 / ValueMismatch $._comment, Added $._tokens
-Show("Prefix, ignore_", JJMatcher.Match("""{"name":"Ali","ignore_reason":"expected"}""", """{"name":"Ali","ignore_reason":"generated","ignore_tokens":12}""",
-    settings: new JJMatchSettings { IgnoredPropertyPrefix = "ignore_" }));
-// true / 100 / 0
-```
-
-The ignored property can hold anything, a whole nested document included. Here `_trace` is an object holding an array of objects and another object, and the two sides differ inside it in five places. Without the prefix those are five differences and a missing array element; with it the entire subtree is gone from both sides, as if the two documents were just `{"name":"Ali"}`, and nothing under `_trace` is compared, reported or counted.
-
-```csharp
-var expected = """{"name":"Ali","_trace":{"model":"m-1","steps":[{"tool":"search","hits":3},{"tool":"rank"}],"usage":{"in":120,"out":40}}}""";
-var response = """{"name":"Ali","_trace":{"model":"m-2","steps":[{"tool":"search","hits":5}],"usage":{"in":131,"out":52,"cached":true}}}""";
-Show("Nested, default", JJMatcher.Match(expected, response));
-// false / 56 / ValueMismatch $._trace.model, ValueMismatch $._trace.steps[0].hits, Missing $._trace.steps[1],
-//              ValueMismatch $._trace.usage.in, ValueMismatch $._trace.usage.out, Added $._trace.usage.cached
-Show("Nested, _", JJMatcher.Match(expected, response, settings: new JJMatchSettings { IgnoredPropertyPrefix = "_" }));
-// true / 100 / 0
-```
-
-```csharp
-Show("Names, default", JJMatcher.Match("""{"name":"Ali"}""", """{"Name":"Ali"}"""));
-// false / 50 / Missing $.name, Added $.Name
-Show("Names, normalized", JJMatcher.Match("""{"name":"Ali"}""", """{"Name":"Ali"}""",
-    settings: new JJMatchSettings { PropertyNameMode = JJPropertyNameMatchingMode.Normalized }));
-// true / 100 / 0
-```
-
-### Scoring weights
-
-By default every node counts the same, so a missing field, an extra field and a wrong value each cost one node of the score. `JJMatchSettings.Scoring` is always present, never null, and selects `JJScoringMode.Standard`, which is exactly that score. Switch it to `JJScoringMode.Weighted` to make some kinds of difference matter less than others: each `JJDifferenceKind` gets an importance weight from 1 (least important) to 10 (most critical), and an unmatched node then counts its kind's weight against a matched node's 10. The defaults are `TypeMismatchWeight = 10`, `MissingWeight = 8`, `ValueMismatchWeight = 6` and `AddedWeight = 3`: a wrong type breaks the shape a consumer relies on, missing content was expected, a wrong value keeps the shape, and extra content leaves everything expected in place.
-
-```csharp
-Show("W", JJMatcher.Match(leftJson, rightJson,
-    settings: new JJMatchSettings { Scoring = { Mode = JJScoringMode.Weighted } }));
-
-Show("X", JJMatcher.Match(leftJson, rightJson,
-    settings: new JJMatchSettings
-    {
-        Scoring =
-        {
-            Mode = JJScoringMode.Weighted,
-            MissingWeight = 10,
-            AddedWeight = 10,
-            ValueMismatchWeight = 1
-        }
-    }));
-```
-
-The same differences, weighed differently, on the example pair. The unmatched mass is the sum over the differences of their nodes times their kind's weight; the matched mass is 20 per matched node.
-
-| ID | Configuration | IsMatch | Score (%) | Differences | Unmatched mass against matched mass |
-| --- | --- | --- | ---: | --- | --- |
-| A | Strict, Standard | `false` | `70` | 4 ValueMismatch, 1 ValueCaseMismatch, 1 Missing, 1 Added | 12 nodes of 40, unweighted |
-| W | A, Weighted with the default weights | `false` | `80.69164265129683` | the same 7 | `4 × 2 × 6 + 1 × 2 × 4 + 1 × 8 + 1 × 3 = 67` against `14 × 20 = 280` |
-| X | A, Weighted: Missing 10, Added 10, ValueMismatch 1 | `false` | `88.60759493670886` | the same 7 | `4 × 2 × 1 + 1 × 2 × 4 + 10 + 10 = 36` against `280` |
-| Y | A, Weighted: Missing 1, Added 1, ValueMismatch 10 | `false` | `75.67567567567568` | the same 7 | `4 × 2 × 10 + 1 × 2 × 4 + 1 + 1 = 90` against `280` |
-| G+W | StructuralMatching, Weighted defaults | `false` | `97.18670076726343` | 1 Missing, 1 Added | `8 + 3 = 11` against `380` |
-
-What to expect from the weights:
-
-- **`IsMatch` and the differences never change.** Weights change the number, not the verdict: a complete match is 100 under every mode, and any difference keeps the score below 100.
-- **A weight of 10 is the Standard cost.** With every weight at 10 the Weighted score equals the Standard one exactly. Lower weights discount a kind, so a Weighted score is never below the Standard score, and lowering a weight never lowers the score.
-- **A subtree weighs its size.** A missing object of five nodes with `MissingWeight = 8` costs 40; a wrong value costs its two primitives times `ValueMismatchWeight`; a type mismatch costs the nodes of both sides. Nothing is counted twice: every unmatched node belongs to exactly one difference.
-- **Direction matters when Missing and Added differ.** Swapping the two documents turns every Missing into an Added, so with the default weights `[1,2]` against `[1,2,3]` scores `95.238…` and `[1,2,3]` against `[1,2]` scores `88.235…`. Give both kinds the same weight when the direction should not matter.
-- **Validation.** A weight outside 1 to 10 or an unknown mode throws `ArgumentOutOfRangeException`, and setting `Scoring` to null throws `ArgumentNullException`.
-
-### Settings from a JJSetting.json file
-
-Settings can also be kept in a JSON file and loaded with `JJMatchSettings.FromJson`. Each property is named like the `JJMatchSettings` property, ignoring case; an omitted property keeps its default. Modes are member names, value rules are joined by `|`, `FuzzyThreshold` is a number from 0 to 1, `IgnoredPropertyPrefix` is the prefix text you chose (`"_"`, `"*"`, `"ignore_"`, …) or null, limits are integers, and `Scoring` is an object whose properties are named like those of `JJScoringSettings`; leave it out for Standard scoring, since the weights only apply under Weighted. The playground shows this file for the settings you select.
+For example, normalized text and numbers need only:
 
 ```json
 {
-  "ArrayMode": "Strict",
-  "ValueMode": "Numeric",
-  "PropertyNameMode": "None",
-  "IgnoredPropertyPrefix": "_",
-  "FuzzyThreshold": 0.8,
-  "MaxDepth": 128,
-  "Scoring": { "Mode": "Weighted", "MissingWeight": 8, "AddedWeight": 3, "TypeMismatchWeight": 10, "ValueMismatchWeight": 6 }
+  "StringComparison": "Normalized",
+  "NumberComparison": "Numeric"
 }
 ```
 
-```csharp
-var settings = JJMatchSettings.FromJson(File.ReadAllText("JJSetting.json"));
-var result = JJMatcher.Match(leftJson, rightJson, settings: settings);
-```
+`ToJson()` emits only differences from defaults, including scope and diagnostics choices. It omits inactive fuzzy thresholds and scoring weights. Use `ToJson(includeInactiveSettings: true)` to preserve those for later editing. Equivalent legacy flags are exported as the simple string/number rules. Omitted properties use defaults. Names ignore case; unknown settings and invalid values fail validation.
 
-An unknown name, a value of the wrong type or a limit outside its range throws an argument exception; text that is not JSON throws `JsonException`.
-
-## 4. Understanding Scores
-
-JJMatch uses **Sørensen–Dice similarity** over matched JSON nodes:
-
-```text
-Score = 200 × matched nodes / (left nodes + right nodes)
-```
-
-A node is a JSON value. Objects and arrays count, including the root. A property name labels its value and does not earn a point of its own. A container of matching type earns one point even when its children differ. Each accepted primitive earns one point. Missing and rejected values earn none.
-
-The example documents have 20 nodes each: the root, `orderId`, `currency`, `customer` (object + 3 values), `items` (array + 2 × (object + 2 values)), `total`, `paid`, `delivery` (object + 2 values), and `legacyCode` or `coupon`. Under B the two identical item shapes collapse to one, so each side has 17.
-
-| ID | Matched | Left + Right | Calculation | Which nodes match |
-| --- | ---: | ---: | --- | --- |
-| A | 14 | 40 | `200 × 14 / 40 = 70` | 6 containers + orderId, currency, city, note + the 4 item values |
-| B | 11 | 34 | `200 × 11 / 34 = 1100/17` | 5 effective containers + 4 exact values outside arrays + 2 ignored item values |
-| C | 15 | 40 | `200 × 15 / 40 = 75` | A + total |
-| D | 15 | 40 | `200 × 15 / 40 = 75` | A + customer.name |
-| E | 16 | 40 | `200 × 16 / 40 = 80` | A + customer.name and customer.contact |
-| F | 16 | 40 | `200 × 16 / 40 = 80` | A + customer.name and total |
-| G | 19 | 40 | `200 × 19 / 40 = 95` | Everything except the unpaired property on each side |
-| H | 17 | 40 | `200 × 17 / 40 = 85` | F + customer.contact |
-
-A and B report the same differences but different scores: counting differences cannot reproduce a score, because a missing subtree is one diagnostic but may contain many nodes, and shape mode changes what is counted.
-
-Under `JJScoringMode.Weighted` (section 3) the same matched and unmatched nodes are weighed instead of counted: each matched node weighs 10 on each side, and each unmatched node weighs the 1-to-10 weight of the kind of difference it belongs to.
-
-```text
-Weighted score = 100 × 20 × matched nodes / (20 × matched nodes + Σ weight × unmatched nodes of each difference)
-```
-
-Row W above is `100 × 280 / (280 + 67)`. With every weight at 10 this is the Standard formula again.
-
-Use `IsMatch` to decide success, not a rounded score. Format `Score` with `F2` and append `%`; .NET's `P` format would multiply it by 100 again. Swapping Left and Right preserves `Score` and `IsMatch`. The score measures accepted content and structure, not probability or factual accuracy. See the [scoring reference](https://github.com/masoudimp/JJMatch/blob/main/Docs/Scoring.md) for alignment constraints and limitations.
-
-## 5. Understanding Differences
+## Advanced settings
 
 ```csharp
-var combined = JJMatcher.Match(leftJson, rightJson,
-    settings: new JJMatchSettings
-    {
-        ValueMode = JJValueMatchingMode.Numeric
-            | JJValueMatchingMode.Normalized
-    });
-
-foreach (var difference in combined.Differences)
-{
-    Console.WriteLine($"{difference.Kind} (weight {difference.ScoreWeight}): {difference.Path}");
-    Console.WriteLine($"  Left:  {difference.LeftValue?.GetRawText() ?? "<missing>"}");
-    Console.WriteLine($"  Right: {difference.RightValue?.GetRawText() ?? "<missing>"}");
-}
+var settings = JJMatchSettings.Normalized;
+settings.Mode = JJComparisonMode.Full;
+settings.IncludeStructuralScore = false; // Avoid the independent structural comparison.
+settings.DecodeStringifiedJson = false;  // Treat JSON-looking strings as literal strings.
+settings.Limits.MaxDepth = 128;
+settings.Limits.MaxAssignmentSize = 256;
+settings.Scoring.Mode = JJScoringMode.Weighted;
+settings.Scoring.MissingWeight = 10;
+settings.Scoring.AddedWeight = 3;
 ```
 
-| Kind | ScoreWeight | Path | Left value | Right value |
-| --- | ---: | --- | --- | --- |
-| ValueMismatch | 10 | `$.customer.contact` | `"Jon Smith"` | `"John Smith"` |
-| ValueMismatch | 10 | `$.paid` | `true` | `false` |
-| ValueMismatch | 10 | `$.delivery.days` | `3` | `5` |
-| Missing | 10 | `$.legacyCode` | `null` | absent |
-| Added | 10 | `$.coupon` | absent | `"WELCOME"` |
+Weights change the score, never `IsMatch` or which differences are reported. Different Missing and Added weights make the score directional. All six difference weights remain configurable, including property-name and value normalization differences. See [scoring](Docs/Scoring.md) for the formula.
 
-`ScoreWeight` is the importance weight the score applied to the difference, from 1 to 10. Under the default `Standard` scoring every difference counts fully, so it is always 10. Under `Weighted` it is the configured weight of the difference's `Kind`, so the same list with the default weights would show 6, 6, 6, 8 and 3.
+`Limits` also exposes `MaxInputLength`, `MaxNodes`, and `MaxWork`. Defaults remain 512 levels, 1,000,000 UTF-16 characters per input, 100,000 nodes, 128 occurrences per assignment, and 10,000,000 work units. Assignment size cannot exceed 256. Limits fail comparison rather than returning approximate results. Very high depth can exhaust the stack.
 
-| Kind | Meaning |
+`result.Diagnostics.StructuralScore` is an independent structure-only score, or null when disabled. `Diagnostics.ElapsedMilliseconds` includes parsing and reporting. Structural diagnostics stay enabled by default for compatibility. `Diagnostics.ValueScore` is the full score when values participate, retained for compatibility; it is not a separate component to average.
+
+Pass `cancellationToken:` for cooperative cancellation. Invalid JSON throws `JsonException`; invalid settings throw argument exceptions; exceeded resource budgets throw `InvalidOperationException`. No partial match result is returned.
+
+## Existing callers
+
+Existing calls, flags, property names, enum values and defaults continue to work without deprecation warnings:
+
+| Existing API | Preferred API |
 | --- | --- |
-| `ValueMismatch` | Same JSON type, but no selected value rule accepted the pair. |
-| `TypeMismatch` | Different JSON types, such as a boolean versus a number. |
-| `Missing` | Exists on the left, absent on the right. |
-| `Added` | Exists only on the right. |
+| `options: JJMatchOptions.StructuralMatching` | `settings.Mode = JJComparisonMode.StructureOnly` |
+| `options: JJMatchOptions.ValueMatching` | `Mode = Full`, `IncludeStructuralScore = false` |
+| `ValueMode = Normalized | Numeric` | `StringComparison = Normalized`, `NumberComparison = Numeric` |
+| `ArrayMode = Strict` / `StructureOnly` | `ArrayComparison = Unordered` / `DistinctShapes` (same behavior) |
+| Top-level `MaxDepth`, `MaxNodes`, etc. | `Limits.MaxDepth`, `Limits.MaxNodes`, etc. |
+| `StructuralMatchPercentage`, `ElapsedMilliseconds` | `Diagnostics.StructuralScore`, `Diagnostics.ElapsedMilliseconds` |
+| `ValueMatchPercentage` | `Score` when comparing values |
 
-`$` is the comparison root, indices start at zero (`$.items[0].sku`), names with punctuation are escaped (`$['first.name']`), and duplicate property names get one-based occurrence suffixes (`$.entry#2`). `Path` is the left location when present, otherwise the right one; `LeftPath` and `RightPath` keep the original positions on each side and can differ, because array elements pair wherever they stand. A missing subtree or a type mismatch produces one difference at the subtree's root. Snapshots contain the whole affected subtree and stay usable after `Match` returns. A nullable missing snapshot is different from present JSON null: `legacyCode` has `LeftValue.Value.ValueKind == JsonValueKind.Null` and a null `RightValue`.
+An explicitly supplied legacy `options` argument overrides `settings.Mode`, even when it is `All`. `IncludeStructuralScore = false` can independently suppress structural diagnostics. In C#, old and new value/limit setters share the same state; later assignments affect the same settings. In JSON, use either legacy `ValueMode` or the new string/number properties, and either top-level limits or `Limits`; likewise use either `ArrayComparison` or `ArrayMode`. Mixing these forms is rejected to avoid order-dependent configuration.
 
-## 6. Input, Limits and Errors
-
-**Input.** Pass JSON text, not a file path or an object's `ToString()`. Any valid JSON root is accepted. A root string whose content is a JSON object or array is decoded one layer automatically, so a stringified document compares equal to its plain form. A string value inside a document whose content is a JSON object or array is decoded the same way, at any level, and compared as the object or array it holds: property and element order and white space inside it do not matter, and a difference inside it is reported at its own path through the string (`$.settings.timeout`). Any other string stays literal. C# `null` throws `ArgumentNullException`; empty text, comments, trailing commas and malformed JSON throw `JsonException`.
-
-**Limits.** Defaults allow 1,000,000 UTF-16 characters per input, depth 512, 100,000 total nodes, 128 elements per array and 128 occurrences per duplicate-property group, and a comparison work budget of 10,000,000. Settings can raise them: depth without an upper bound, total nodes up to 1,000,000 and arrays and duplicate-property groups up to 256 (`MaxAssignmentSize`), so a Strict array of more than 256 elements cannot be compared. The comparison recurses once per nesting level, so a document deep enough for a very large depth can overflow the stack, which cannot be caught. Exceeding a limit throws `InvalidOperationException` (or `JsonException` for depth); a limit failure never returns an approximate score.
-
-```csharp
-try
-{
-    JJMatcher.Match(leftJson, rightJson, settings: new JJMatchSettings { MaxNodes = 39 });
-}
-catch (InvalidOperationException exception)
-{
-    Console.WriteLine(exception.Message); // Comparison exceeded JJMatchSettings.MaxNodes.
-}
-```
-
-**Cancellation and validation.** `Match` accepts `cancellationToken:` and throws `OperationCanceledException` when cancelled. Unknown option bits and invalid settings throw argument exceptions. `ValueMode.None`, the default, is valid: only identical values match. Configure settings before calling and do not mutate shared settings during a call.
-
-**Result properties.** `StructuralMatchPercentage` is an independent structure-only diagnostic, computed under the selected scoring mode; `ValueMatchPercentage` is the value-aware document score, not a component to average with the structural one. `ElapsedMilliseconds` is the wall-clock time the call took, including parsing and difference reporting.
-
-## 7. Next Steps
-
-Paste your own documents into the [JJMatch Playground](https://masoudimp.github.io/JJMatch/), switch the settings, and copy the generated `JJMatcher.Match` call or `JJSetting.json` into your project.
+The [detailed reference](Docs/Configuration.md) preserves the worked order example, exact score tables, old API examples and difference semantics. Try the [Playground](https://masoudimp.github.io/JJMatch/) for presets, custom rules and minimal C#/JSON exports.

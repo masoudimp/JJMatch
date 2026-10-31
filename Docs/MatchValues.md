@@ -6,7 +6,7 @@ Fixture paths and counts below are relative to the `core` document unless explic
 
 ## Purpose
 
-Decides whether two leaf values are the same value, by the rules the caller selects. It does not compare structure, pair arrays, score, or report differences. [`StructureMatcher.Match`](Match.md) calls it for value-aware primitive comparison, including speculative assignment pairs. `JJMatcher.Match` exposes the rules through `JJMatchSettings.ValueMode`. The legacy structural-only overload does not call it.
+Decides whether two leaf values are the same value, by the rules the caller selects. It does not compare structure, pair arrays, score, or report differences. [`StructureMatcher.Match`](Match.md) calls it for value-aware primitive comparison, including speculative assignment pairs. `JJMatcher.Match` exposes the rules through independent `JJMatchSettings.StringComparison` and `NumberComparison` properties. They share state with the supported legacy `ValueMode` flags described below; setting one category preserves the other. Fuzzy already includes normalization, so callers choose one string rule. The legacy structural-only overload does not call it.
 
 ## Input and output
 
