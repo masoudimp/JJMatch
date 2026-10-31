@@ -43,10 +43,12 @@ public static class JJMatcher
         var cache = new ComparisonCache(config.ArrayMode, budget, config.PropertyNameMode);
         var total = StructureMatcher.CountNodes(left, config.ArrayMode, budget, cache)
             + StructureMatcher.CountNodes(right, config.ArrayMode, budget, cache);
-        var match = StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, compareValues, budget, cache, config.PropertyNameMode, config.FuzzyThreshold);
+        // Under Weighted scoring the matcher weighs tied pairings with the same weights the score applies below.
+        var scoring = config.Scoring.Mode == JJScoringMode.Weighted ? config.Scoring : null;
+        var match = StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, compareValues, budget, cache, config.PropertyNameMode, config.FuzzyThreshold, scoring);
         // A value-aware full match is a structural full match too, and a structural count cannot exceed the total.
         var structural = structuralDiagnostics && compareValues && match.Differences.Count != 0
-            ? StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, false, budget, cache, config.PropertyNameMode)
+            ? StructureMatcher.Match(left, right, config.ArrayMode, config.ValueMode, false, budget, cache, config.PropertyNameMode, scoring: scoring)
             : null;
         var score = Score(match, total, config, budget, cache);
         double? structuralScore = !structuralDiagnostics ? null : structural is null ? score : Score(structural, total, config, budget, cache);
@@ -76,11 +78,16 @@ public static class JJMatcher
 
     // The public kind of an internal difference: a name-case pair decides first, then the side that is absent, then the category.
     private static JJDifferenceKind Kind(StructureDifference difference) =>
-        difference.MismatchType == StructureMismatchType.PropertyNameCaseMismatch ? JJDifferenceKind.PropertyNameCaseMismatch
-        : difference.Left is null ? JJDifferenceKind.Added
-        : difference.Right is null ? JJDifferenceKind.Missing
-        : difference.MismatchType == StructureMismatchType.ValueMismatch ? JJDifferenceKind.ValueMismatch
-        : difference.MismatchType == StructureMismatchType.ValueCaseMismatch ? JJDifferenceKind.ValueCaseMismatch
+        Kind(difference.MismatchType, difference.Left is null, difference.Right is null);
+
+    // The same mapping for a difference the matcher is about to report, so that the mass its pairing tie rule weighs
+    // under Weighted scoring is the mass Score charges afterwards.
+    internal static JJDifferenceKind Kind(StructureMismatchType type, bool leftAbsent, bool rightAbsent) =>
+        type == StructureMismatchType.PropertyNameCaseMismatch ? JJDifferenceKind.PropertyNameCaseMismatch
+        : leftAbsent ? JJDifferenceKind.Added
+        : rightAbsent ? JJDifferenceKind.Missing
+        : type == StructureMismatchType.ValueMismatch ? JJDifferenceKind.ValueMismatch
+        : type == StructureMismatchType.ValueCaseMismatch ? JJDifferenceKind.ValueCaseMismatch
         : JJDifferenceKind.TypeMismatch;
 
     // Standard scoring is Dice over the node counts. Weighted scoring is Dice over node weights: a matched node weighs
