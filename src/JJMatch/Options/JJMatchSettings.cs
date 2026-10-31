@@ -18,6 +18,15 @@ public sealed class JJMatchSettings
     public JJPropertyNameMatchingMode PropertyNameMode { get; set; } = JJPropertyNameMatchingMode.None;
 
     /// <summary>
+    /// Text of your choice that marks a property to leave out, such as <c>"_"</c>, <c>"*"</c> or <c>"ignore_"</c>; nothing is
+    /// built in. A property whose name starts with it, compared
+    /// character by character before any name rule, is removed from both documents at every level, including inside
+    /// a decoded stringified document, so it is never compared, reported or counted in the score. Defaults to null:
+    /// every property is kept. The empty string is rejected, since it would remove every property.
+    /// </summary>
+    public string? IgnoredPropertyPrefix { get; set; }
+
+    /// <summary>
     /// Least similarity the Fuzzy value rule accepts, from 0 to 1: one minus the edits allowed per character of the
     /// longer text. Defaults to 0.8, one edit for every five characters; 1 allows no edit and 0 accepts any two strings.
     /// </summary>
@@ -60,7 +69,8 @@ public sealed class JJMatchSettings
     /// Reads settings from a JSON object, such as the content of a <c>JJSetting.json</c> file. Each property is
     /// named like the property here, ignoring case, and an omitted property keeps its default. Modes are written as
     /// member names (<c>"StructureOnly"</c>); value rules are joined by <c>|</c> or <c>,</c> (<c>"Normalized | Numeric"</c>).
-    /// Limits are integers and <see cref="FuzzyThreshold"/> a number. <see cref="Scoring"/> is a nested object whose
+    /// Limits are integers, <see cref="FuzzyThreshold"/> a number and <see cref="IgnoredPropertyPrefix"/> a string or
+    /// null. <see cref="Scoring"/> is a nested object whose
     /// properties are named like those of <see cref="JJScoringSettings"/>, with the mode as a member name and the
     /// weights as integers. The result is validated like settings passed to <see cref="JJMatcher.Match"/>.
     /// </summary>
@@ -80,6 +90,7 @@ public sealed class JJMatchSettings
             if (Is(property, nameof(ArrayMode))) settings.ArrayMode = Member<JJArrayMatchingMode>(property);
             else if (Is(property, nameof(ValueMode))) settings.ValueMode = Member<JJValueMatchingMode>(property);
             else if (Is(property, nameof(PropertyNameMode))) settings.PropertyNameMode = Member<JJPropertyNameMatchingMode>(property);
+            else if (Is(property, nameof(IgnoredPropertyPrefix))) settings.IgnoredPropertyPrefix = Text(property);
             else if (Is(property, nameof(MaxDepth))) settings.MaxDepth = Int32(property);
             else if (Is(property, nameof(MaxInputLength))) settings.MaxInputLength = Int32(property);
             else if (Is(property, nameof(MaxNodes))) settings.MaxNodes = Int32(property);
@@ -107,6 +118,13 @@ public sealed class JJMatchSettings
             }
             return scoring;
         }
+
+        static string? Text(JsonProperty property) => property.Value.ValueKind switch
+        {
+            JsonValueKind.String => property.Value.GetString(),
+            JsonValueKind.Null => null,
+            _ => throw new ArgumentException($"'{property.Name}' must be a string or null.", nameof(json))
+        };
 
         static double Double(JsonProperty property) =>
             property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetDouble(out var value)
@@ -147,6 +165,7 @@ public sealed class JJMatchSettings
         if ((copy.ValueMode & ~known) != 0) throw new ArgumentOutOfRangeException(nameof(ValueMode));
         if (copy.PropertyNameMode < JJPropertyNameMatchingMode.None || copy.PropertyNameMode > JJPropertyNameMatchingMode.Normalized)
             throw new ArgumentOutOfRangeException(nameof(PropertyNameMode));
+        if (copy.IgnoredPropertyPrefix is { Length: 0 }) throw new ArgumentOutOfRangeException(nameof(IgnoredPropertyPrefix));
         // Written as a double negative so that NaN is rejected too.
         if (!(copy.FuzzyThreshold >= 0 && copy.FuzzyThreshold <= 1)) throw new ArgumentOutOfRangeException(nameof(FuzzyThreshold));
         if (copy.MaxDepth < 1) throw new ArgumentOutOfRangeException(nameof(MaxDepth));

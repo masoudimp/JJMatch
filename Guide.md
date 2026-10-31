@@ -132,6 +132,37 @@ Every row keeps the missing `legacyCode` and the added `coupon`, so no setting p
 
 Value rules never touch property names. Identical names always pair, and the default `JJPropertyNameMatchingMode.None` pairs nothing else. `PropertyNameMode = JJPropertyNameMatchingMode.Normalized` pairs names with the same trimming, NFC and case-insensitive rule as Normalized values, so `name` pairs with `Name` while `postalCode` still does not pair with `postal_code`. It applies under every option, including `StructuralMatching`, and names of one object that become equal under it are treated as duplicate property names.
 
+Some properties should not take part at all: a comment written by hand, a token count or model name the LLM adds, or any bookkeeping you mark with a prefix of your own. `IgnoredPropertyPrefix` is that prefix: there is no built-in one, you choose the text in the settings, whether `_`, `*`, `$`, `__` or a word like `ignore_`. Every property whose name starts with it is removed from both documents before they are compared, at every level and inside decoded stringified values too, so such a property is never reported as a difference and never counted in the score, whether it differs, exists on one side only or is identical. The prefix is matched as written, before the name rule: `"_"` removes `_id` and a name that is exactly `_`, `"__"` removes `__typename` but keeps `_id`, `"*"` removes `*note` but keeps `_id`, `"ignore_"` removes `ignore_reason` but keeps `ignored`, and under Normalized names ` _x` with a leading space is still kept. Null, the default, keeps every property; the empty string is rejected, since it would remove them all.
+
+```csharp
+Show("Prefix, default", JJMatcher.Match("""{"name":"Ali","_comment":"expected"}""", """{"name":"Ali","_comment":"generated","_tokens":12}"""));
+// false / 57.142857142857146 / ValueMismatch $._comment, Added $._tokens
+Show("Prefix, _", JJMatcher.Match("""{"name":"Ali","_comment":"expected"}""", """{"name":"Ali","_comment":"generated","_tokens":12}""",
+    settings: new JJMatchSettings { IgnoredPropertyPrefix = "_" }));
+// true / 100 / 0
+Show("Prefix, *", JJMatcher.Match("""{"name":"Ali","*note":"expected"}""", """{"name":"Ali","*note":"generated","*tokens":12}""",
+    settings: new JJMatchSettings { IgnoredPropertyPrefix = "*" }));
+// true / 100 / 0
+Show("Prefix, * on _ names", JJMatcher.Match("""{"name":"Ali","_comment":"expected"}""", """{"name":"Ali","_comment":"generated","_tokens":12}""",
+    settings: new JJMatchSettings { IgnoredPropertyPrefix = "*" }));
+// false / 57.142857142857146 / ValueMismatch $._comment, Added $._tokens
+Show("Prefix, ignore_", JJMatcher.Match("""{"name":"Ali","ignore_reason":"expected"}""", """{"name":"Ali","ignore_reason":"generated","ignore_tokens":12}""",
+    settings: new JJMatchSettings { IgnoredPropertyPrefix = "ignore_" }));
+// true / 100 / 0
+```
+
+The ignored property can hold anything, a whole nested document included. Here `_trace` is an object holding an array of objects and another object, and the two sides differ inside it in five places. Without the prefix those are five differences and a missing array element; with it the entire subtree is gone from both sides, as if the two documents were just `{"name":"Ali"}`, and nothing under `_trace` is compared, reported or counted.
+
+```csharp
+var expected = """{"name":"Ali","_trace":{"model":"m-1","steps":[{"tool":"search","hits":3},{"tool":"rank"}],"usage":{"in":120,"out":40}}}""";
+var response = """{"name":"Ali","_trace":{"model":"m-2","steps":[{"tool":"search","hits":5}],"usage":{"in":131,"out":52,"cached":true}}}""";
+Show("Nested, default", JJMatcher.Match(expected, response));
+// false / 56 / ValueMismatch $._trace.model, ValueMismatch $._trace.steps[0].hits, Missing $._trace.steps[1],
+//              ValueMismatch $._trace.usage.in, ValueMismatch $._trace.usage.out, Added $._trace.usage.cached
+Show("Nested, _", JJMatcher.Match(expected, response, settings: new JJMatchSettings { IgnoredPropertyPrefix = "_" }));
+// true / 100 / 0
+```
+
 ```csharp
 Show("Names, default", JJMatcher.Match("""{"name":"Ali"}""", """{"Name":"Ali"}"""));
 // false / 50 / Missing $.name, Added $.Name
@@ -181,13 +212,14 @@ What to expect from the weights:
 
 ### Settings from a JJSetting.json file
 
-Settings can also be kept in a JSON file and loaded with `JJMatchSettings.FromJson`. Each property is named like the `JJMatchSettings` property, ignoring case; an omitted property keeps its default. Modes are member names, value rules are joined by `|`, `FuzzyThreshold` is a number from 0 to 1, limits are integers, and `Scoring` is an object whose properties are named like those of `JJScoringSettings`. The playground shows this file for the settings you select.
+Settings can also be kept in a JSON file and loaded with `JJMatchSettings.FromJson`. Each property is named like the `JJMatchSettings` property, ignoring case; an omitted property keeps its default. Modes are member names, value rules are joined by `|`, `FuzzyThreshold` is a number from 0 to 1, `IgnoredPropertyPrefix` is the prefix text you chose (`"_"`, `"*"`, `"ignore_"`, …) or null, limits are integers, and `Scoring` is an object whose properties are named like those of `JJScoringSettings`; leave it out for Standard scoring, since the weights only apply under Weighted. The playground shows this file for the settings you select.
 
 ```json
 {
   "ArrayMode": "Strict",
   "ValueMode": "Numeric",
   "PropertyNameMode": "None",
+  "IgnoredPropertyPrefix": "_",
   "FuzzyThreshold": 0.8,
   "MaxDepth": 128,
   "Scoring": { "Mode": "Weighted", "MissingWeight": 8, "AddedWeight": 3, "TypeMismatchWeight": 10, "ValueMismatchWeight": 6 }

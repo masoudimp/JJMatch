@@ -580,6 +580,9 @@ public class JJMatcherIntegrationTests
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = -0.1 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = 1.1 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { FuzzyThreshold = double.NaN }));
+        // An empty prefix would remove every property.
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { IgnoredPropertyPrefix = "" }));
+        Assert.Throws<ArgumentException>(() => JJMatchSettings.FromJson("""{ "IgnoredPropertyPrefix": 1 }"""));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 0 }));
         // The depth has no upper bound: the parser's former cap of 128 is accepted and above.
         Assert.True(JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 129 }).IsMatch);
@@ -799,7 +802,9 @@ public class JJMatcherIntegrationTests
         (JJDifferenceKind.ValueMismatch, "$.order.customer.nick", "$.order.customer.nick"),
         (JJDifferenceKind.TypeMismatch, "$.order.delivery", "$.order.delivery"),
         (JJDifferenceKind.Missing, "$.order.legacy", null),
+        (JJDifferenceKind.ValueMismatch, "$.order._comment", "$.order._comment"),
         (JJDifferenceKind.Added, null, "$.order.coupon"),
+        (JJDifferenceKind.Added, null, "$.order._tokens"),
         (JJDifferenceKind.PropertyNameCaseMismatch, "$.names.zipCode", "$.names.ZipCode"),
         (JJDifferenceKind.PropertyNameCaseMismatch, "$.names.phone", "$.names[' phone ']"),
         // A combining accent is a mark, not a letter, so the decomposed spelling is not a plain name in a path.
@@ -823,6 +828,7 @@ public class JJMatcherIntegrationTests
         (JJDifferenceKind.ValueMismatch, "$.numbers.huge", "$.numbers.huge"),
         (JJDifferenceKind.ValueMismatch, "$.numbers.big", "$.numbers.big"),
         (JJDifferenceKind.ValueMismatch, "$.stringified.changed.status", "$.stringified.changed.status"),
+        (JJDifferenceKind.Added, null, "$.stringified.changed._model"),
         (JJDifferenceKind.ValueMismatch, "$.stringified.nested.inner.x", "$.stringified.nested.inner.x"),
         (JJDifferenceKind.ValueMismatch, "$.stringified.text", "$.stringified.text"),
         (JJDifferenceKind.ValueMismatch, "$.paths['a.b']", "$.paths['a.b']"),
@@ -852,9 +858,9 @@ public class JJMatcherIntegrationTests
         // spelling (an escaped emoji, a reordered or padded stringified document, equal nulls) are not reported.
         Assert.Equal(Enum.GetValues<JJDifferenceKind>().OrderBy(kind => kind), result.Differences.Select(d => d.Kind).Distinct().OrderBy(kind => kind));
         Assert.Equal(3, result.Differences.Count(d => d.Kind == JJDifferenceKind.Missing));
-        Assert.Equal(4, result.Differences.Count(d => d.Kind == JJDifferenceKind.Added));
+        Assert.Equal(6, result.Differences.Count(d => d.Kind == JJDifferenceKind.Added));
         Assert.Equal(5, result.Differences.Count(d => d.Kind == JJDifferenceKind.TypeMismatch));
-        Assert.Equal(20, result.Differences.Count(d => d.Kind == JJDifferenceKind.ValueMismatch));
+        Assert.Equal(21, result.Differences.Count(d => d.Kind == JJDifferenceKind.ValueMismatch));
         Assert.Equal(3, result.Differences.Count(d => d.Kind == JJDifferenceKind.ValueCaseMismatch));
         Assert.Equal(3, result.Differences.Count(d => d.Kind == JJDifferenceKind.PropertyNameCaseMismatch));
         // A whole subtree is one difference carrying its content; a type mismatch carries both sides, nothing below.
@@ -943,6 +949,35 @@ public class JJMatcherIntegrationTests
         var result = Playground(settings: new JJMatchSettings { ValueMode = mode, FuzzyThreshold = threshold });
         Consistent(result);
         Assert.Equal(PlaygroundDefaults.Where(d => !accepted.Contains(d.Left)), Shape(result));
+    }
+
+    [Fact]
+    public void Playground_example_ignored_prefix_removes_those_properties_from_both_sides_at_every_level()
+    {
+        var result = Playground(settings: new JJMatchSettings { IgnoredPropertyPrefix = "_" });
+        Consistent(result);
+        // _comment differs on the two sides, _tokens exists on the right only and _model sits inside a stringified
+        // document: under the prefix none is compared or reported, and nothing else moves. The prefix is matched as
+        // written, so under Normalized names a padded or differently cased name is still kept or dropped by its own
+        // first characters.
+        var expected = PlaygroundDefaults.Where(d => !(d.Left ?? d.Right)!.Contains("._", StringComparison.Ordinal)).ToList();
+        Assert.Equal(PlaygroundDefaults.Length - 3, expected.Count);
+        Assert.Equal(expected, Shape(result));
+        // The removed nodes leave the total, so the score rises; the prefix is not a value rule, so the structural
+        // percentage moves with it.
+        var defaults = Playground();
+        Assert.True(result.Score > defaults.Score);
+        Assert.True(result.StructuralMatchPercentage > defaults.StructuralMatchPercentage);
+        var normalized = Playground(settings: new JJMatchSettings { IgnoredPropertyPrefix = "_", PropertyNameMode = JJPropertyNameMatchingMode.Normalized });
+        Assert.Equal(expected
+            .Where(d => d.Kind != JJDifferenceKind.PropertyNameCaseMismatch)
+            .Select(d => d.Left == "$.names.sku" ? (JJDifferenceKind.Missing, "$.names.SKU", null) : d), Shape(normalized));
+        // A longer prefix removes only the names that start with all of it.
+        var tokensOnly = Playground(settings: new JJMatchSettings { IgnoredPropertyPrefix = "_t" });
+        Assert.Equal(PlaygroundDefaults.Where(d => d.Right != "$.order._tokens"), Shape(tokensOnly));
+        // Setting the prefix through FromJson gives the same comparison, and null in the file keeps every property.
+        Assert.Equal(expected, Shape(Playground(settings: JJMatchSettings.FromJson("""{ "IgnoredPropertyPrefix": "_" }"""))));
+        Assert.Equal(PlaygroundDefaults, Shape(Playground(settings: JJMatchSettings.FromJson("""{ "ignoredPropertyPrefix": null }"""))));
     }
 
     [Fact]
