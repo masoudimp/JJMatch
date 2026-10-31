@@ -15,19 +15,19 @@ internal static class JsonStructureTraverser
     // A positive stringifiedDepth also decodes a string holding a serialized object or array, at any level: the
     // string's node becomes the node of the document it holds, nested at most that many levels deep, which is
     // walked by the same rules. Every other string, and every string when it is 0, stays a string.
-    internal static JsonStructureNode Traverse(JsonElement element, string? propertyName = null, ComparisonBudget? budget = null, int stringifiedDepth = 0)
+    // A property whose decoded name starts with ignoredPrefix is left out, with everything below it, wherever it
+    // occurs; null, the default, leaves every property in.
+    internal static JsonStructureNode Traverse(JsonElement element, string? propertyName = null, ComparisonBudget? budget = null, int stringifiedDepth = 0, string? ignoredPrefix = null)
     {
         budget?.VisitNode();
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
                 List<JsonStructureNode>? properties = null;
-                List<string>? rawNames = null;
-                var index = 0;
-                foreach (var property in element.EnumerateObject())
+                foreach (var (name, value) in Properties(element))
                 {
-                    (properties ??= new List<JsonStructureNode>()).Add(Traverse(property.Value, DecodeName(property, element, index, ref rawNames), budget, stringifiedDepth - 1));
-                    index++;
+                    if (Ignored(name, ignoredPrefix)) continue;
+                    (properties ??= new List<JsonStructureNode>()).Add(Traverse(value, name, budget, stringifiedDepth - 1, ignoredPrefix));
                 }
                 return new JsonStructureNode(propertyName, JsonValueKind.Object, null, Children(properties));
 
@@ -35,7 +35,7 @@ internal static class JsonStructureTraverser
                 List<JsonStructureNode>? items = null;
                 foreach (var item in element.EnumerateArray())
                 {
-                    (items ??= new List<JsonStructureNode>(element.GetArrayLength())).Add(Traverse(item, budget: budget, stringifiedDepth: stringifiedDepth - 1));
+                    (items ??= new List<JsonStructureNode>(element.GetArrayLength())).Add(Traverse(item, budget: budget, stringifiedDepth: stringifiedDepth - 1, ignoredPrefix: ignoredPrefix));
                 }
                 return new JsonStructureNode(propertyName, JsonValueKind.Array, null, Children(items));
 
@@ -44,7 +44,7 @@ internal static class JsonStructureTraverser
                 {
                     using (document)
                     {
-                        return Traverse(document.RootElement, propertyName, budget, stringifiedDepth);
+                        return Traverse(document.RootElement, propertyName, budget, stringifiedDepth, ignoredPrefix);
                     }
                 }
                 return new JsonStructureNode(propertyName, JsonValueKind.String, DecodeString(element), Array.Empty<JsonStructureNode>());
@@ -59,6 +59,23 @@ internal static class JsonStructureTraverser
 
     private static IReadOnlyList<JsonStructureNode> Children(List<JsonStructureNode>? children) =>
         children is null ? Array.Empty<JsonStructureNode>() : children;
+
+    // Whether a property is left out under the prefix: an ordinal comparison of the decoded name as written.
+    internal static bool Ignored(string name, string? ignoredPrefix) =>
+        ignoredPrefix is not null && name.StartsWith(ignoredPrefix, StringComparison.Ordinal);
+
+    // The decoded name and the value of each immediate property of an object, in document order. Traverse and the
+    // facade's location walk both enumerate through this, so they see the same names and skip the same properties.
+    internal static IEnumerable<(string Name, JsonElement Value)> Properties(JsonElement element)
+    {
+        List<string>? rawNames = null;
+        var index = 0;
+        foreach (var property in element.EnumerateObject())
+        {
+            yield return (DecodeName(property, element, index, ref rawNames), property.Value);
+            index++;
+        }
+    }
 
     // The document a string holds when its text, after leading JSON white space, starts with '{' or '[' and parses
     // within maxDepth levels; otherwise null. A string that cannot be decoded as Unicode text holds none.

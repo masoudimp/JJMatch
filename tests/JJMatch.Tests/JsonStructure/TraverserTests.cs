@@ -527,4 +527,25 @@ public class TraverserTests
         Assert.Throws<InvalidOperationException>(() => Tree(LoadWithInvalidUtf8("Left.json", "plainInner")));
         Assert.Throws<InvalidOperationException>(() => Tree(LoadWithInvalidUtf8("Left.json", "deletedAt")));
     }
+
+    // A property whose decoded name starts with the prefix is left out with its subtree, at every level; the prefix
+    // is matched as written, so "_" drops the name that is exactly "_" and "1" reaches the "1st" nested under
+    // another name. Without a prefix every property stays.
+    [Fact]
+    public void Tree_leaves_out_properties_under_the_ignored_prefix_at_every_level()
+    {
+        var section = Left.GetProperty("pathEscapes");
+        var all = Tree(section);
+        Assert.Contains("_", all.Children.Select(child => child.PropertyName));
+        Assert.Equal(new[] { "1st" }, Child(all, "line\u2028sep").Children.Select(child => child.PropertyName));
+
+        var withoutUnderscore = global::JJMatch.JsonStructureTraverser.Traverse(section, ignoredPrefix: "_");
+        Assert.Equal(all.Children.Count - 1, withoutUnderscore.Children.Count);
+        Assert.Equal(all.Children.Where(child => child.PropertyName != "_").Select(child => child.PropertyName), withoutUnderscore.Children.Select(child => child.PropertyName));
+
+        var withoutDigitOne = global::JJMatch.JsonStructureTraverser.Traverse(section, ignoredPrefix: "1");
+        Assert.Equal(all.Children.Count, withoutDigitOne.Children.Count);
+        Assert.Empty(Child(withoutDigitOne, "line\u2028sep").Children);
+        Assert.Equal(JsonValueKind.Object, Child(withoutDigitOne, "line\u2028sep").ValueKind);
+    }
 }

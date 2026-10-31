@@ -88,7 +88,7 @@
                 </div>
             </fieldset>
 
-            <fieldset>
+            <fieldset class="mb-3">
                 <legend class="fs-6 fw-semibold mb-1">Property names</legend>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="names-normalized" @bind="normalizedNames" />
@@ -97,6 +97,11 @@
                 </div>
                 <div class="form-text">Identical names always match.</div>
             </fieldset>
+
+            <label class="form-label fw-semibold mb-1" for="ignored-prefix">IgnoredPropertyPrefix</label>
+            @Tip("ignored-prefix", IgnoredPrefixTip)
+            <input class="form-control form-control-sm" type="text" id="ignored-prefix" placeholder="_ or * or ignore_" autocomplete="off" spellcheck="false" aria-describedby="ignored-prefix-help" @bind="ignoredPrefix" @bind:event="oninput" />
+            <div id="ignored-prefix-help" class="form-text">Your own marker: properties whose name starts with this text (<code>_</code>, <code>*</code>, <code>ignore_</code>, …) are removed from both documents before comparing, at every level. Empty keeps every property.</div>
         </section>
     </div>
 
@@ -295,6 +300,7 @@ else if (result is not null)
     private JJMatchOptions scope = JJMatchOptions.All;
     private JJArrayMatchingMode arrayMode = JJArrayMatchingMode.Strict;
     private bool normalized, fuzzy, numeric, normalizedNames;
+    private string ignoredPrefix = "";
     private int? maxDepth = new JJMatchSettings().MaxDepth;
     private double? fuzzyThreshold = new JJMatchSettings().FuzzyThreshold;
     private JJScoringMode scoringMode = new JJScoringSettings().Mode;
@@ -442,6 +448,30 @@ else if (result is not null)
                 Verdict(Object("\"name\": \"Incorporation\""), Object("\"name\": \"Subsidiary\""), farDistance <= allowedEdits));
         }
     }
+
+    // The prefix is whatever is typed, nothing is built in, so the example names start with the typed text and the
+    // tip shows what the current value removes. With nothing typed, the examples use "*" and show that nothing is
+    // removed until a prefix is given.
+    private (string Text, Example A, Example B) IgnoredPrefixTip
+    {
+        get
+        {
+            var active = ignoredPrefix.Length != 0;
+            var prefix = active ? ignoredPrefix : "*";
+            var name = JsonSerializer.Serialize(prefix + "id", Relaxed);
+            var other = JsonSerializer.Serialize("_id", Relaxed);
+            var state = active
+                ? $"With {JsonSerializer.Serialize(prefix, Relaxed)} typed, {name} is removed and a name starting with anything else is kept:"
+                : "Nothing is typed, so every property is kept, * names included:";
+            return (
+                $"Your own marker, such as _, * or ignore_: properties whose name starts with it are removed from both documents before comparing, at every level, so they are never reported or counted. {state}",
+                Verdict(Object($"\"name\": \"Ann\",\n  {name}: 1"), Object($"\"name\": \"Ann\",\n  {name}: 2"), active),
+                Verdict(Object($"\"name\": \"Ann\",\n  {other}: 1"), Object($"\"name\": \"Ann\",\n  {other}: 2"), active && "_id".StartsWith(prefix, StringComparison.Ordinal)));
+        }
+    }
+
+    // Tooltip text is rendered by Razor, which escapes it, so the examples can show the prefix as typed.
+    private static readonly JsonSerializerOptions Relaxed = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     private static string Object(string properties) => "{\n  " + properties + "\n}";
 
@@ -598,7 +628,7 @@ else if (result is not null)
             {
                 scope == JJMatchOptions.All ? "Structure and values" : scope == JJMatchOptions.StructuralMatching ? "Structure only" : "Values only",
                 $"{arrayMode} arrays",
-                normalizedNames ? "Normalized names" : "Identical names",
+                (normalizedNames ? "Normalized names" : "Identical names") + (ignoredPrefix.Length == 0 ? "" : $", ignoring {ignoredPrefix}…"),
                 rules.Count == 0 ? "Identical values" : "Values: " + string.Join(", ", rules),
                 $"{scoringMode} scoring",
                 $"MaxDepth {maxDepth?.ToString(CultureInfo.InvariantCulture) ?? "?"}"
@@ -834,6 +864,7 @@ else if (result is not null)
             ArrayMode = arrayMode,
             ValueMode = valueMode,
             PropertyNameMode = normalizedNames ? JJPropertyNameMatchingMode.Normalized : JJPropertyNameMatchingMode.None,
+            IgnoredPropertyPrefix = ignoredPrefix.Length == 0 ? null : ignoredPrefix,
             FuzzyThreshold = fuzzyThreshold!.Value,
             MaxDepth = maxDepth!.Value,
             Scoring =
@@ -852,7 +883,8 @@ else if (result is not null)
     private int Weight(string name) => weights.First(weight => weight.Name == name).Value!.Value;
 
     // The C# code that reproduces the selected settings, built from the same values Compare uses.
-    // Rendered as highlighted HTML; every token is an identifier or keyword, so no escaping is needed.
+    // Rendered as highlighted HTML; every token is an identifier, keyword, number or escaped literal, so no further
+    // escaping is needed.
     private MarkupString Snippet()
     {
         var settings = Settings();
@@ -864,21 +896,18 @@ else if (result is not null)
             : Flags<JJValueMatchingMode>(settings.ValueMode);
         var arrayModeText = Member(nameof(JJArrayMatchingMode), settings.ArrayMode.ToString());
         var nameModeText = Member(nameof(JJPropertyNameMatchingMode), settings.PropertyNameMode.ToString());
-        var scoringModeText = Member(nameof(JJScoringMode), settings.Scoring.Mode.ToString());
         var varKeyword = Keyword("var");
         var newKeyword = Keyword("new");
+        // The prefix defaults to null, so the line is only shown when one is typed.
+        var prefixText = settings.IgnoredPropertyPrefix is null ? "" : $"\n    IgnoredPropertyPrefix = {Literal(settings.IgnoredPropertyPrefix)},";
+        // Scoring defaults to Standard and the weights are ignored under it, so the block is only shown for Weighted.
         // Two dollar signs: {{ }} interpolates, so the single braces of the object initializer are literal.
-        return new MarkupString($$"""
-            {{varKeyword}} settings = {{newKeyword}} {{Type(nameof(JJMatchSettings))}}
-            {
-                ArrayMode = {{arrayModeText}},
-                ValueMode = {{valueModeText}},
-                PropertyNameMode = {{nameModeText}},
-                FuzzyThreshold = {{Number(settings.FuzzyThreshold)}},
-                MaxDepth = {{Number(settings.MaxDepth)}},
+        var scoringText = settings.Scoring.Mode == JJScoringMode.Weighted
+            ? $$"""
+            ,
                 Scoring =
                 {
-                    Mode = {{scoringModeText}},
+                    Mode = {{Member(nameof(JJScoringMode), nameof(JJScoringMode.Weighted))}},
                     MissingWeight = {{Number(settings.Scoring.MissingWeight)}},
                     AddedWeight = {{Number(settings.Scoring.AddedWeight)}},
                     TypeMismatchWeight = {{Number(settings.Scoring.TypeMismatchWeight)}},
@@ -886,28 +915,38 @@ else if (result is not null)
                     PropertyNameCaseMismatchWeight = {{Number(settings.Scoring.PropertyNameCaseMismatchWeight)}},
                     ValueCaseMismatchWeight = {{Number(settings.Scoring.ValueCaseMismatchWeight)}}
                 }
+            """
+            : "";
+        return new MarkupString($$"""
+            {{varKeyword}} settings = {{newKeyword}} {{Type(nameof(JJMatchSettings))}}
+            {
+                ArrayMode = {{arrayModeText}},
+                ValueMode = {{valueModeText}},
+                PropertyNameMode = {{nameModeText}},{{prefixText}}
+                FuzzyThreshold = {{Number(settings.FuzzyThreshold)}},
+                MaxDepth = {{Number(settings.MaxDepth)}}{{scoringText}}
             };
             {{varKeyword}} result = {{Type(nameof(JJMatcher))}}.Match(expectedJson, llmResponseJson, {{optionsText}}, settings);
             """);
     }
 
     // The JJSetting.json that JJMatchSettings.FromJson reads back into the same settings. Rendered as highlighted
-    // HTML; names are identifiers and values are member names or digits, so no escaping is needed.
+    // HTML; names are identifiers and values are member names, digits or escaped literals, so no further escaping
+    // is needed.
     private MarkupString SettingsJson()
     {
         var settings = Settings();
         var valueModeText = settings.ValueMode == JJValueMatchingMode.None
             ? nameof(JJValueMatchingMode.None)
             : settings.ValueMode.ToString().Replace(", ", " | ");
-        return new MarkupString($$"""
-            {
-              {{Name(nameof(JJMatchSettings.ArrayMode))}}: {{Text(settings.ArrayMode.ToString())}},
-              {{Name(nameof(JJMatchSettings.ValueMode))}}: {{Text(valueModeText)}},
-              {{Name(nameof(JJMatchSettings.PropertyNameMode))}}: {{Text(settings.PropertyNameMode.ToString())}},
-              {{Name(nameof(JJMatchSettings.FuzzyThreshold))}}: {{Number(settings.FuzzyThreshold)}},
-              {{Name(nameof(JJMatchSettings.MaxDepth))}}: {{Number(settings.MaxDepth)}},
+        // The prefix defaults to null, so the property is only shown when one is typed.
+        var prefixText = settings.IgnoredPropertyPrefix is null ? "" : $"\n  {Name(nameof(JJMatchSettings.IgnoredPropertyPrefix))}: {Literal(settings.IgnoredPropertyPrefix)},";
+        // Scoring defaults to Standard and the weights are ignored under it, so the object is only shown for Weighted.
+        var scoringText = settings.Scoring.Mode == JJScoringMode.Weighted
+            ? $$"""
+            ,
               {{Name(nameof(JJMatchSettings.Scoring))}}: {
-                {{Name(nameof(JJScoringSettings.Mode))}}: {{Text(settings.Scoring.Mode.ToString())}},
+                {{Name(nameof(JJScoringSettings.Mode))}}: {{Text(nameof(JJScoringMode.Weighted))}},
                 {{Name(nameof(JJScoringSettings.MissingWeight))}}: {{Number(settings.Scoring.MissingWeight)}},
                 {{Name(nameof(JJScoringSettings.AddedWeight))}}: {{Number(settings.Scoring.AddedWeight)}},
                 {{Name(nameof(JJScoringSettings.TypeMismatchWeight))}}: {{Number(settings.Scoring.TypeMismatchWeight)}},
@@ -915,6 +954,15 @@ else if (result is not null)
                 {{Name(nameof(JJScoringSettings.PropertyNameCaseMismatchWeight))}}: {{Number(settings.Scoring.PropertyNameCaseMismatchWeight)}},
                 {{Name(nameof(JJScoringSettings.ValueCaseMismatchWeight))}}: {{Number(settings.Scoring.ValueCaseMismatchWeight)}}
               }
+            """
+            : "";
+        return new MarkupString($$"""
+            {
+              {{Name(nameof(JJMatchSettings.ArrayMode))}}: {{Text(settings.ArrayMode.ToString())}},
+              {{Name(nameof(JJMatchSettings.ValueMode))}}: {{Text(valueModeText)}},
+              {{Name(nameof(JJMatchSettings.PropertyNameMode))}}: {{Text(settings.PropertyNameMode.ToString())}},{{prefixText}}
+              {{Name(nameof(JJMatchSettings.FuzzyThreshold))}}: {{Number(settings.FuzzyThreshold)}},
+              {{Name(nameof(JJMatchSettings.MaxDepth))}}: {{Number(settings.MaxDepth)}}{{scoringText}}
             }
             """);
     }
@@ -955,6 +1003,9 @@ else if (result is not null)
     private static string Number(double value) => $"<span class=\"num\">{value.ToString("R", CultureInfo.InvariantCulture)}</span>";
     private static string Name(string text) => $"<span class=\"pn\">\"{text}\"</span>";
     private static string Text(string text) => $"<span class=\"str\">\"{text}\"</span>";
+    // A typed string as a quoted literal, escaped the JSON way, which C# reads identically. The default encoder also
+    // escapes every character the HTML parser cares about, so the markup stays safe whatever is typed.
+    private static string Literal(string text) => $"<span class=\"str\">{JsonSerializer.Serialize(text)}</span>";
 
     private static string Percent(double? value) =>
         value is null ? "n/a" : value.Value.ToString("R", CultureInfo.InvariantCulture) + "%";

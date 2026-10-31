@@ -863,7 +863,8 @@
         "total": 30,
         "customer": { "name": "  Alice Chen  ", "city": "Seattle", "contact": "Jon Smith", "nick": "Jon" },
         "delivery": { "days": 3, "window": "morning" },
-        "legacy": { "code": "L1", "flags": [true, false] }
+        "legacy": { "code": "L1", "flags": [true, false] },
+        "_comment": "hand-written"
       },
       "names": {
         "zipCode": "98101",

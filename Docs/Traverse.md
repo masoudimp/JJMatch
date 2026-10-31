@@ -14,6 +14,7 @@ Captures the structure and the primitive values of a document in one pass, in a 
 - `string? propertyName`: the name the element is held under. Callers leave it out; the recursion supplies it for object properties.
 - Optional internal `ComparisonBudget`: counts every visited node and polls cancellation. Public Match supplies it; parsing depth follows `JJMatchSettings.MaxDepth`, which has no upper bound. Existing internal callers may omit it.
 - Optional `int stringifiedDepth`: how many levels deep a string at this element may decode to. `0`, the default, decodes nothing. Public Match passes `JJMatchSettings.MaxDepth`; each object or array level passes one less to its children.
+- Optional `string? ignoredPrefix`: a property whose decoded name starts with it is left out, with its whole subtree, wherever it occurs. `null`, the default, leaves every property in. Public Match passes `JJMatchSettings.IgnoredPropertyPrefix`, validated there to be null or non-empty; this internal parameter is not validated, and an empty string would leave out every property.
 - Returns the `JsonStructureNode` for the element. `JsonStructureNode.cs` lives in this folder.
 
 | Property | Type | Content |
@@ -28,7 +29,8 @@ Nodes are immutable: every property is set by the constructor and has no setter.
 ## Behavior
 
 - Every JSON value becomes exactly one node: the root, each object property value and each array element.
-- An object's children are its properties and an array's children are its elements, in document order. Nothing is sorted, merged or dropped.
+- An object's children are its properties and an array's children are its elements, in document order. Nothing is sorted or merged, and without an `ignoredPrefix` nothing is dropped.
+- With an `ignoredPrefix`, a property whose decoded name starts with it, compared ordinally and before any name rule, has no node: neither it nor anything below it is in the tree, so matching never sees it, no difference is reported for it and it is not counted in the score. The check applies at every level, including inside a decoded stringified document, and `"_"` removes a name that is exactly `"_"` as well as `"_id"`. The facade's location walk enumerates properties through the same `Properties` helper and skips the same names, so the tree and the source element stay in step.
 - Object property order is preserved as written. Ignoring it is a matching rule, not an extraction rule.
 - Array element order and boundaries are preserved: a nested array is a node of its own with its own children, and an empty inner array is a node without children. An element's index is its position in its parent's `Children`.
 - Duplicate keys in one object are separate children with the same `PropertyName`, each with its own value and subtree. An occurrence index is the number of earlier siblings with that name.
@@ -60,11 +62,12 @@ Nodes are immutable: every property is set by the constructor and has no setter.
 
 ## Tests
 
-Decoding of stringified values is covered end to end by `JJMatcherIntegrationTests.Stringified_object_or_array_value_is_compared_as_the_json_it_holds` (`publicApi.nestedStringified`).
+Decoding of stringified values is covered end to end by `JJMatcherIntegrationTests.Stringified_object_or_array_value_is_compared_as_the_json_it_holds` (`publicApi.nestedStringified`). The ignored prefix is covered end to end by `JJMatcherIntegrationTests.Playground_example_ignored_prefix_removes_those_properties_from_both_sides_at_every_level` (`publicApi.playground`: `_comment` on both sides, `_tokens` on one side and `_model` inside a stringified document), with its validation in `Invalid_inputs_and_settings_throw`.
 
 `tests/JJMatch.Tests/JsonStructure/TraverserTests.cs` calls `Traverse` directly on sections of `Left.json` and `Right.json`:
 
 - root object, root array and root primitives of every kind;
+- the ignored prefix (`pathEscapes`): `"_"` leaves out the property named exactly `_` and nothing else, `"1"` empties the object under `line sep` by leaving out the nested `1st`, and no prefix keeps everything;
 - an object's properties in document order with kind and value (`customer`, `propertyOrder`);
 - the empty property name against unnamed nodes, and decoded escaped names (`""`, `escapedNames`);
 - duplicate property names with their own values (`duplicateKeys`);

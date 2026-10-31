@@ -36,8 +36,9 @@ public static class JJMatcher
         using var leftDocument = Parse(json1, config, budget);
         using var rightDocument = Parse(json2, config, budget);
         // Strings holding a serialized object or array are compared as the document they hold, within MaxDepth overall.
-        var left = JsonStructureTraverser.Traverse(leftDocument.RootElement, budget: budget, stringifiedDepth: config.MaxDepth);
-        var right = JsonStructureTraverser.Traverse(rightDocument.RootElement, budget: budget, stringifiedDepth: config.MaxDepth);
+        // Properties under IgnoredPropertyPrefix are left out of both trees here, so nothing below sees them.
+        var left = JsonStructureTraverser.Traverse(leftDocument.RootElement, budget: budget, stringifiedDepth: config.MaxDepth, ignoredPrefix: config.IgnoredPropertyPrefix);
+        var right = JsonStructureTraverser.Traverse(rightDocument.RootElement, budget: budget, stringifiedDepth: config.MaxDepth, ignoredPrefix: config.IgnoredPropertyPrefix);
         var cache = new ComparisonCache(config.ArrayMode, budget, config.PropertyNameMode);
         var total = StructureMatcher.CountNodes(left, config.ArrayMode, budget, cache)
             + StructureMatcher.CountNodes(right, config.ArrayMode, budget, cache);
@@ -52,8 +53,8 @@ public static class JJMatcher
         var differences = new List<JJDifference>(match.Differences.Count);
         if (match.Differences.Count != 0)
         {
-            var leftLocations = Locations(left, leftDocument.RootElement, match.Differences.Select(d => d.Left), config.MaxDepth, budget);
-            var rightLocations = Locations(right, rightDocument.RootElement, match.Differences.Select(d => d.Right), config.MaxDepth, budget);
+            var leftLocations = Locations(left, leftDocument.RootElement, match.Differences.Select(d => d.Left), config, budget);
+            var rightLocations = Locations(right, rightDocument.RootElement, match.Differences.Select(d => d.Right), config, budget);
             foreach (var difference in match.Differences)
             {
                 budget.Spend();
@@ -124,9 +125,10 @@ public static class JJMatcher
     // while their source documents are alive. Duplicate occurrence suffixes include every duplicated ancestor.
     // Only the containers above a wanted node are entered; everything else is skipped without a path. A string that
     // Traverse decoded is snapshot as the string it is, and entered as the document it holds: its paths continue
-    // through that document as if it were written in place.
+    // through that document as if it were written in place. A property Traverse left out under the ignored prefix
+    // is skipped here the same way, so the tree and the element stay in step.
     private static Dictionary<JsonStructureNode, (string Path, JsonElement Element)> Locations(
-        JsonStructureNode root, JsonElement element, IEnumerable<JsonStructureNode?> wanted, int maxDepth, ComparisonBudget budget)
+        JsonStructureNode root, JsonElement element, IEnumerable<JsonStructureNode?> wanted, JJMatchSettings config, ComparisonBudget budget)
     {
         var targets = new HashSet<JsonStructureNode>();
         foreach (var node in wanted)
@@ -159,7 +161,7 @@ public static class JJMatcher
             if (value.ValueKind == JsonValueKind.String && node.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
             {
                 // It parsed within fewer levels in Traverse, so it parses within maxDepth here.
-                using var document = JsonStructureTraverser.Stringified(value, maxDepth, budget)!;
+                using var document = JsonStructureTraverser.Stringified(value, config.MaxDepth, budget)!;
                 value = document.RootElement.Clone();
             }
             if (node.ValueKind == JsonValueKind.Array)
@@ -183,10 +185,10 @@ public static class JJMatcher
                 }
                 var occurrences = new Dictionary<string, int>(StringComparer.Ordinal);
                 var index = 0;
-                foreach (var property in value.EnumerateObject())
+                foreach (var (name, propertyValue) in JsonStructureTraverser.Properties(value))
                 {
+                    if (JsonStructureTraverser.Ignored(name, config.IgnoredPropertyPrefix)) continue;
                     var child = node.Children[index++];
-                    var name = child.PropertyName!;
                     var duplicated = counts[name] > 1;
                     var occurrence = 0;
                     if (duplicated)
@@ -198,7 +200,7 @@ public static class JJMatcher
                     budget.Spend(name.Length);
                     var childPath = path + StructureMatcher.PropertyPath(name);
                     if (duplicated) childPath += "#" + occurrence.ToString(CultureInfo.InvariantCulture);
-                    Add(child, property.Value, childPath);
+                    Add(child, propertyValue, childPath);
                 }
             }
         }

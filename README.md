@@ -29,7 +29,7 @@ foreach (var difference in result.Differences)
 ## Behavior
 
 - Identical values and count-preserving arrays by default. Array element order, object property order and JSON formatting are ignored.
-- Optional structural shape comparison of arrays, Normalized, Numeric or Fuzzy value rules on top of identical values, which always match, with a configurable fuzzy similarity threshold, and a Normalized property name rule that pairs `name` with `Name`.
+- Optional structural shape comparison of arrays, Normalized, Numeric or Fuzzy value rules on top of identical values, which always match, with a configurable fuzzy similarity threshold, a Normalized property name rule that pairs `name` with `Name`, and a property prefix of your choice, such as `_`, `*` or `ignore_`, whose properties (`_comment`, `*tokens`, `ignore_reason`) are removed from both documents before comparing.
 - Read-only differences with paths and detached JSON snapshots, including original array indices and duplicate-property occurrences.
 - Deterministic, symmetric Sørensen–Dice node similarity from 0 to 100, with an optional weighted mode in which each kind of difference counts from 1 to 10. `IsMatch` is true exactly when `Score` is 100 and `Differences` is empty, under every mode. See [scoring](Docs/Scoring.md).
 - Automatic decoding of a stringified JSON object or array, as the root or as a value at any level, cancellation and configurable resource limits. Invalid options and settings throw rather than being silently ignored.
