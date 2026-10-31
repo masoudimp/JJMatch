@@ -92,11 +92,17 @@ internal static class ValueMatcher
     /// <summary>The least similarity <see cref="JJValueMatchingMode.Fuzzy"/> accepts unless told otherwise: one edit for every five units of the longer text.</summary>
     internal const double DefaultFuzzyThreshold = 0.8;
 
-    // The most edits a text of the given length tolerates: the units it may lose before fewer than threshold × length
-    // remain. The units that must remain are rounded up, so that a threshold written in decimal (0.8, 0.75) keeps
-    // its exact boundary: 0.8 × 5 is 4 units kept and one edit allowed, although 1 − 0.8 is below 0.2 in binary.
-    private static int AllowedEdits(int length, double threshold) =>
-        length - (int)Math.Ceiling(threshold * length);
+    // Compare the retained fraction directly with the threshold. Ceiling(threshold * length) can reject an
+    // exact boundary (0.56 * 25 rounds above 14), or accept the next double above a boundary when multiplication
+    // rounds down. The product only estimates the retained count; division decides whether to round it up.
+    // Avoid subtracting the threshold from 1, which loses precision at boundaries such as 0.8.
+    private static int AllowedEdits(int length, double threshold)
+    {
+        if (length == 0) return 0;
+        var retained = (int)(threshold * length);
+        if ((double)retained / length < threshold) retained++;
+        return length - retained;
+    }
 
     // The text Fuzzy compares: Normalize, then invariant upper case. Casing can map supplementary code points;
     // distance is measured in UTF-16 units of the resulting text, independently of the current culture.

@@ -85,10 +85,13 @@ textarea.json-input {
 .tip-body {
     display: none;
     flex-direction: column;
-    max-width: min(24rem, calc(100vw - 1rem));
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+    overflow-y: auto;
+    overflow-wrap: anywhere;
     position: fixed;
     text-align: left;
-    width: max-content;
+    width: 34rem;
     z-index: 1030;
 }
 
@@ -96,10 +99,32 @@ textarea.json-input {
     display: flex;
 }
 
+.tip-body > * {
+    flex-shrink: 0;
+}
+
+.tip-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .5rem;
+}
+
+.tip-example .badge {
+    white-space: normal;
+    text-align: left;
+    line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+    .tip-pair {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .tip-json {
     color: inherit;
     display: block;
-    white-space: pre;
+    white-space: pre-wrap;
 }
 
 .snippet {

@@ -130,13 +130,12 @@
             <fieldset class="mb-3">
                 <legend class="fs-6 fw-semibold mb-1">Match rules</legend>
                 <label for="strings" class="form-label">Strings</label>
+                @Tip("strings", StringsTip)
                 <select id="strings" class="form-select mb-2" @bind="SelectedStringComparison">
                     <option value="@JJStringComparison.Exact">Exact text</option>
                     <option value="@JJStringComparison.Normalized">Normalized: ignore case and outer whitespace</option>
                     <option value="@JJStringComparison.Fuzzy">Fuzzy: also accept small typos</option>
                 </select>
-                @Tip("values-normalized", NormalizedTip)
-                @Tip("values-fuzzy", FuzzyTip)
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="checkbox" id="values-numeric" @bind="numeric" />
                     <label class="form-check-label" for="values-numeric">Compare numbers by quantity (1 = 1.0)</label>
@@ -373,7 +372,9 @@ else if (result is not null)
     private const int ValuePreviewLength = 160;
 
     private readonly record struct JsonStatus(bool Ok, string Text, string? Detail, string Css);
-    private readonly record struct Example(string Left, string Right, string Badge, string BadgeClass, string? Note = null);
+    private readonly record struct Example(string Left, string Right, string Badge, string BadgeClass, string? Note = null, string Heading = "Example");
+    private sealed record TipContent(string Title, string Text, string Context, Example[] Examples,
+        string? Checked = null, string? Unchecked = null);
 
     // One weight input per JJDifferenceKind, with an example pair that holds exactly one difference of that kind.
     private sealed class WeightInput
@@ -398,8 +399,8 @@ else if (result is not null)
         public string ExampleRight { get; }
 
         public string TipText => Value is int value
-            ? $"{Description} Under Weighted at {value}:"
-            : $"{Description} Under Weighted:";
+            ? $"{Description} Current weight: {value}. A lower weight reduces the penalty; 10 applies the Standard cost. Matching rules and reported differences stay the same."
+            : $"{Description} Enter a weight from 1 to 10 to see its effect.";
     }
 
     private static readonly JJScoringSettings DefaultScoring = new();
@@ -443,91 +444,108 @@ else if (result is not null)
         return section.Replace("\n    ", "\n");
     }
 
-    // One tooltip per setting: what it does, then two pairs of documents showing both outcomes.
-    private static readonly (string Text, Example A, Example B)
-        AllTip = ("Property names, JSON types, nesting and primitive values are all compared.",
-            Verdict(Object("\"age\": 30"), Object("\"age\": 30"), true),
-            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), false)),
-        StructuralTip = ("Only property names, JSON types and nesting are compared. Values are ignored.",
-            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), true),
-            Verdict(Object("\"age\": 30"), Object("\"age\": \"30\""), false)),
-        MaxDepthTip = ("The deepest nesting of objects and arrays a document may have. Deeper input is rejected. At 1:",
-            Verdict(Object("\"age\": 30"), Object("\"age\": 30"), true),
-            Verdict(Object("\"user\": { \"age\": 30 }"), Object("\"user\": { \"age\": 30 }"), false)),
-        StrictTip = ("Array elements may be in any order, but each must occur the same number of times.",
-            Verdict("[1, 2, 3]", "[3, 2, 1]", true),
-            Verdict("[1, 2, 3]", "[1, 2, 2]", false)),
-        StructureOnlyTip = ("Only the shapes of array elements are compared. Count and values are ignored.",
-            Verdict("[1, 2, 3]", "[9]", true),
-            Verdict("[1, 2, 3]", "[{ \"a\": 1 }]", false)),
-        NormalizedNamesTip = ("Property names match ignoring case, outer white space and Unicode form.",
-            Verdict(Object("\"age\": 30"), Object("\" Age \": 30"), true),
-            Verdict(Object("\"age\": 30"), Object("\"ag_e\": 30"), false)),
-        NormalizedTip = ("Strings match ignoring case, outer white space and Unicode form.",
-            Verdict(Object("\"city\": \"New York\""), Object("\"city\": \" new york \""), true),
-            Verdict(Object("\"city\": \"New York\""), Object("\"city\": \"Boston\""), false)),
-        FuzzyTip = ("Strings match when they are similar enough, tolerating typos.",
-            Verdict(Object("\"name\": \"John Smith\""), Object("\"name\": \"Jon Smith\""), true),
-            Verdict(Object("\"name\": \"John Smith\""), Object("\"name\": \"Totally Different\""), false)),
-        NumericTip = ("Numbers match as quantities, however they are written.",
-            Verdict(Object("\"age\": 30"), Object("\"age\": 30.0"), true),
-            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), false)),
-        StructuralScoreTip = ("Also scores the two documents by structure alone and reports it as Structural score in the diagnostics. Unchecked skips that extra comparison. Checked, a value difference keeps the structural score full while a type difference lowers it:",
-            Verdict(Object("\"age\": 30"), Object("\"age\": 31"), true),
-            Verdict(Object("\"age\": 30"), Object("\"age\": \"30\""), false)),
-        DecodeJsonTip = ("A string holding a JSON object or array is decoded and compared as that object or array, at the root and at every level inside the documents. Checked:",
-            Verdict(Object("\"user\": \"{\\\"age\\\": 30}\""), Object("\"user\": { \"age\": 30 }"), true),
-            Verdict(Object("\"user\": \"{\\\"age\\\": 30}\""), Object("\"user\": \"age: 30\""), false));
+    // Teaching examples use explicit, fixed rules; score previews below use the live settings.
+    private const string DefaultExampleContext = "Examples use Full comparison and default settings, except for the rule described here.";
+
+    private static readonly TipContent
+        AllTip = new("Full comparison", "Compare property names, JSON types, nesting and values. The selected string, number and array rules still apply.",
+            DefaultExampleContext,
+            [Verdict("{ \"age\": 30 }", "{ \"age\": 30 }", true, "Same name, type and value."),
+             Verdict("{ \"age\": 30 }", "{ \"age\": 31 }", false, "The number changed.")]),
+        StructuralTip = new("Structure only", "Compare property names, JSON types and nesting. Ignore primitive values throughout the document. Array counts still follow the selected array rule.",
+            "Examples use Structure only with default settings.",
+            [Verdict("{ \"age\": 30 }", "{ \"age\": 31 }", true, "Both properties contain a number."),
+             Verdict("{ \"age\": 30 }", "{ \"age\": \"30\" }", false, "A number and a string have different JSON types.")]),
+        MaxDepthTip = new("Maximum nesting depth", "Limit how deeply objects and arrays can be nested. The outermost object or array is level 1. Enter a whole number of at least 1.",
+            "Examples use MaxDepth = 1. Exceeding the limit causes an input error, not a comparison result.",
+            [new("{ \"age\": 30 }", "{ \"age\": 30 }", "Within limit", "text-bg-success", "One object level; comparison can run."),
+             new("{ \"user\": { \"age\": 30 } }", "{ \"user\": { \"age\": 30 } }", "Input error", "text-bg-warning", "Two object levels; raise MaxDepth to at least 2.")]),
+        StrictTip = new("Unordered arrays", "Ignore element order, but preserve the number of occurrences. Each element can pair with only one element in the other array. Values follow the selected comparison rules.",
+            DefaultExampleContext,
+            [Verdict("[1, 2, 3]", "[3, 2, 1]", true, "Only the order changed."),
+             Verdict("[1, 1, 2]", "[1, 2]", false, "The response is missing one occurrence of 1.")]),
+        StructureOnlyTip = new("Distinct array shapes", "Compare the different shapes present in each array. Ignore order, repeated shapes and primitive values everywhere below an array. Property names, types and nesting still matter.",
+            DefaultExampleContext,
+            [Verdict("[{ \"age\": 30 }, { \"age\": 31 }]", "[{ \"age\": 99 }]", true, "Both arrays contain the same shape: an object with a numeric age."),
+             Verdict("[{ \"age\": 30 }]", "[{ \"age\": \"30\" }]", false, "The age property has a different type.")]),
+        NormalizedNamesTip = new("Normalize property names", "Choose whether harmless spelling differences in property names affect matching. This does not change string values.",
+            DefaultExampleContext,
+            [new("{ \"age\": 30 }", "{ \" Age \": 30 }", "Checked: Match · Unchecked: Different", "text-bg-primary", "Internal spaces and punctuation are still significant.")],
+            "Ignore letter case, leading/trailing whitespace and equivalent Unicode forms.",
+            "Require identical property names, including case and whitespace."),
+        NumericTip = new("Compare numbers by quantity", "Choose whether the written form of a JSON number matters. This rule has no effect in Structure only comparison.",
+            DefaultExampleContext,
+            [new("{ \"age\": 30 }", "{ \"age\": 30.0 }", "Checked: Match · Unchecked: Different", "text-bg-primary", "There is no rounding tolerance. A number such as 30 never becomes equal to a string such as \"30\".")],
+            "Compare exact numeric quantities: 1, 1.0 and 1e0 are equal.",
+            "Compare numbers as written: 1 and 1.0 are different."),
+        StructuralScoreTip = new("Separate structural score", "Control the additional Structural score in diagnostics. This does not change the main comparison rules or main score.",
+            "Example uses Full comparison with default settings.",
+            [new("{ \"age\": 30 }", "{ \"age\": 31 }", "Main comparison: Different", "text-bg-primary", "Checked: Structural score is 100% because both ages are numbers. Unchecked: no separate structural score is computed.")],
+            "Also compute a score that ignores primitive values. Type and structure differences can lower it.",
+            "Skip the extra structural comparison."),
+        DecodeJsonTip = new("Decode JSON inside strings", "Choose whether a string containing a valid JSON object or array is compared as that object or array. Applies at the root and at every nested level.",
+            DefaultExampleContext,
+            [new("{ \"user\": \"{\\\"age\\\":30}\" }", "{ \"user\": { \"age\": 30 } }", "Checked: Match · Unchecked: Different", "text-bg-primary", "Ordinary text and strings containing only a primitive, such as \"30\", stay strings.")],
+            "Decode embedded objects and arrays before comparing them.",
+            "Keep strings as strings; compare them using the selected string rule.");
+
+    private static readonly TipContent StringsTip = new("String comparison", "Choose how JSON string values match. These rules do not change property names or convert strings into numbers. Structure only comparison ignores string values.",
+        "Examples use Full comparison. The Fuzzy example uses threshold 0.8, regardless of the current input.",
+        [Verdict("{ \"city\": \"Oslo\" }", "{ \"city\": \" oslo \" }", false,
+            "Exact requires identical text, including case and whitespace.", "Exact text"),
+         Verdict("{ \"city\": \"Oslo\" }", "{ \"city\": \" oslo \" }", true,
+            "Normalized ignores case, outer whitespace and equivalent Unicode forms. Internal spaces and punctuation still matter.", "Normalized"),
+         Verdict("{ \"name\": \"John Smith\" }", "{ \"name\": \"Jon Smith\" }", true,
+            "Fuzzy also tolerates edits: inserted, deleted, replaced or adjacent swapped characters. Higher thresholds allow fewer edits; short strings tolerate fewer typos.", "Fuzzy at 0.8")]);
 
     // The scoring mode tips share one pair holding a TypeMismatch and a Missing difference, scored under each mode.
     private static readonly string ModeExampleLeft = Object("\"name\": \"Ann\",\n  \"age\": 30,\n  \"city\": \"Oslo\"");
     private static readonly string ModeExampleRight = Object("\"name\": \"Ann\",\n  \"age\": \"30\"");
 
-    private const string StandardTipText = "Every difference lowers the score fully, whatever its kind. Under Standard:";
-    private const string WeightedTipText = "Each kind of difference lowers the score by its weight. Under Weighted with the weights below:";
+    private const string StandardTipText = "Every unmatched node counts at full cost. Custom weights are ignored. The score measures matched content, so a missing subtree can count more than one changed value.";
+    private const string WeightedTipText = "Choose how strongly each kind of difference lowers the score: 1 is the smallest penalty and 10 is the Standard penalty. Weights change only the score, not which differences are found.";
 
-    // "Incorporation" vs "Incorparation" (one edit) and "Incorporation" vs "Subsidiary" (twelve
-    // edits) are fixed examples, so only the allowed-edits side of each comparison moves as
-    // fuzzyThreshold changes, matching ValueMatcher's own length - Ceiling(threshold * length)
-    // rule (see src/JJMatch/Internal/Matching/ValueMatcher.cs).
-    private (string Text, Example A, Example B) FuzzyThresholdTip
+    private TipContent FuzzyThresholdTip
     {
         get
         {
-            const int length = 13; // "Incorporation".Length, the longer of the example strings
-            const int closeDistance = 1; // edits from "Incorporation" to "Incorparation"
-            const int farDistance = 12; // edits from "Incorporation" to "Subsidiary"
-            var threshold = FuzzyThresholdError is null && fuzzyThreshold is double value ? value : new JJMatchSettings().FuzzyThreshold;
-            var thresholdText = threshold.ToString("0.##", CultureInfo.InvariantCulture);
-            var allowedEdits = length - (int)Math.Ceiling(threshold * length);
-            var charsPerEdit = threshold >= 1
-                ? "any"
-                : (1 / (1 - threshold)).ToString("0.#", CultureInfo.InvariantCulture);
-            return (
-                $"The least similarity Fuzzy accepts: {thresholdText} allows one edit for every {charsPerEdit} characters. At {thresholdText}:",
-                Verdict(Object("\"name\": \"Incorporation\""), Object("\"name\": \"Incorparation\""), closeDistance <= allowedEdits),
-                Verdict(Object("\"name\": \"Incorporation\""), Object("\"name\": \"Subsidiary\""), farDistance <= allowedEdits));
+            var valid = FuzzyThresholdError is null && fuzzyThreshold.HasValue;
+            var threshold = valid ? fuzzyThreshold!.Value : JJMatchSettings.Default.FuzzyThreshold;
+            var settings = JJMatchSettings.Default;
+            settings.StringComparison = JJStringComparison.Fuzzy;
+            settings.FuzzyThreshold = threshold;
+            Example FuzzyExample(string right, string explanation)
+            {
+                const string left = "{ \"name\": \"John Smith\" }";
+                return Verdict(left, right, JJMatcher.Match(left, right, settings: settings).Score == 100, explanation);
+            }
+            return new("Fuzzy similarity threshold",
+                "Enter a number from 0 to 1. Higher is stricter. At 1, no edits are allowed after normalization; at 0, any two strings match. Case, outer whitespace and equivalent Unicode forms are ignored at every threshold.",
+                $"Examples use Full + Fuzzy at {threshold.ToString("G", CultureInfo.InvariantCulture)}. " +
+                    (valid ? "Other settings use defaults." : "The input is invalid; these examples use the default threshold, 0.8."),
+                [FuzzyExample("{ \"name\": \"Jon Smith\" }", "One deletion in a 10-character name. Matches at 0.9 or lower."),
+                 FuzzyExample("{ \"name\": \"Joan Smyth\" }", "Two replacements in a 10-character name. Matches at 0.8 or lower.")]);
         }
     }
 
-    // The prefix is whatever is typed, nothing is built in, so the example names start with the typed text and the
-    // tip shows what the current value removes. With nothing typed, the examples use "*" and show that nothing is
-    // removed until a prefix is given.
-    private (string Text, Example A, Example B) IgnoredPrefixTip
+    private TipContent IgnoredPrefixTip
     {
         get
         {
             var active = ignoredPrefix.Length != 0;
-            var prefix = active ? ignoredPrefix : "*";
+            var prefix = active ? ignoredPrefix : "_";
             var name = JsonSerializer.Serialize(prefix + "id", Relaxed);
-            var other = JsonSerializer.Serialize("_id", Relaxed);
-            var state = active
-                ? $"With {JsonSerializer.Serialize(prefix, Relaxed)} typed, {name} is removed and a name starting with anything else is kept:"
-                : "Nothing is typed, so every property is kept, * names included:";
-            return (
-                $"Your own marker, such as _, * or ignore_: properties whose name starts with it are removed from both documents before comparing, at every level, so they are never reported or counted. {state}",
-                Verdict(Object($"\"name\": \"Ann\",\n  {name}: 1"), Object($"\"name\": \"Ann\",\n  {name}: 2"), active),
-                Verdict(Object($"\"name\": \"Ann\",\n  {other}: 1"), Object($"\"name\": \"Ann\",\n  {other}: 2"), active && "_id".StartsWith(prefix, StringComparison.Ordinal)));
+            // Always choose a different first character, even for an arbitrary user-supplied prefix.
+            var keptName = prefix.StartsWith("v", StringComparison.Ordinal) ? "age" : "value";
+            var other = JsonSerializer.Serialize(keptName, Relaxed);
+            return new("Ignore properties by prefix",
+                "Skip properties whose names start with the exact text you enter, at every level in both documents. Skipped properties do not appear in differences or affect scores. Matching is case-sensitive; * is a literal character, not a wildcard. Leave empty to keep every property.",
+                active ? $"Examples use prefix {JsonSerializer.Serialize(prefix, Relaxed)} with Full comparison and other settings at defaults."
+                    : "The prefix is empty. Examples use Full comparison with default settings; no properties are skipped.",
+                [Verdict(Object($"{name}: 1"), Object($"{name}: 2"), active,
+                    active ? "This property starts with the prefix, so its value is ignored." : "An underscore has no special meaning unless you enter it as the prefix.", "Property with the example prefix"),
+                 Verdict(Object($"{other}: 1"), Object($"{other}: 2"), false,
+                    "This property is kept, so the changed value is reported.", "Property without the prefix")]);
         }
     }
 
@@ -536,8 +554,8 @@ else if (result is not null)
 
     private static string Object(string properties) => "{\n  " + properties + "\n}";
 
-    private static Example Verdict(string left, string right, bool accepted) =>
-        new(left, right, accepted ? "Accepted" : "Rejected", accepted ? "text-bg-success" : "text-bg-danger");
+    private static Example Verdict(string left, string right, bool accepted, string? note = null, string heading = "Example") =>
+        new(left, right, accepted ? "Match" : "Different", accepted ? "text-bg-success" : "text-bg-danger", note, heading);
 
     // Scores an example pair under the current settings, in the given mode. The tooltips render on every pass, so
     // an invalid setting is reported instead of thrown, and a library error can never take the page down.
@@ -559,21 +577,47 @@ else if (result is not null)
         }
     }
 
-    private RenderFragment Tip(string key, (string Text, Example A, Example B) tip) => Tip(key, tip.Text, tip.A, tip.B);
+    private RenderFragment Tip(string key, string text, params Example[] examples) =>
+        Tip(key, new TipContent(key switch
+        {
+            "scoring-standard" => "Standard scoring",
+            "scoring-weighted" => "Weighted scoring",
+            "weight-missing" => "Penalty for missing content",
+            "weight-added" => "Penalty for added content",
+            "weight-type" => "Penalty for a different JSON type",
+            "weight-value" => "Penalty for a different value",
+            "weight-name-case" => "Penalty for property name case differences",
+            "weight-value-case" => "Penalty for string case and formatting differences",
+            _ => weights.First(weight => weight.Id == key).Name
+        }, text, "Live preview: uses your current comparison settings and the scoring mode described here.", examples));
 
-    private RenderFragment Tip(string key, string text, params Example[] examples) => @<span class="tip">
-        <button type="button" class="tip-trigger badge rounded-pill text-bg-secondary" aria-label="Help for @key" aria-describedby="tip-@key">?</button>
-        <span class="tip-body card shadow p-2 small" id="tip-@key" role="tooltip">
-            <span class="d-block mb-2">@text</span>
-            @foreach (var example in examples)
+    private RenderFragment Tip(string key, TipContent tip) => @<span class="tip">
+        <button type="button" class="tip-trigger badge rounded-pill text-bg-secondary" aria-label="Help: @tip.Title" aria-describedby="tip-@key">?</button>
+        <span class="tip-body card shadow p-3 small" id="tip-@key" role="tooltip" tabindex="0">
+            <strong class="d-block fs-6 mb-2">@tip.Title</strong>
+            <span class="d-block mb-2">@tip.Text</span>
+            @if (tip.Checked is not null)
             {
-                <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@example.Left</code>
-                <code class="tip-json border rounded bg-body-tertiary p-1 mb-1">@example.Right</code>
-                <span class="badge align-self-start mb-2 @example.BadgeClass">@example.Badge</span>
-                @if (example.Note is not null)
-                {
-                    <span class="d-block text-body-secondary">@example.Note</span>
-                }
+                <span class="tip-states border rounded p-2 mb-2">
+                    <span class="d-block mb-2"><strong>Checked:</strong> @tip.Checked</span>
+                    <span class="d-block"><strong>Unchecked:</strong> @tip.Unchecked</span>
+                </span>
+            }
+            <span class="d-block text-body-secondary mb-2">@tip.Context</span>
+            @foreach (var example in tip.Examples)
+            {
+                <span class="tip-example border-top pt-2 mt-1">
+                    <strong class="d-block mb-1">@example.Heading</strong>
+                    <span class="tip-pair">
+                        <span><span class="d-block text-body-secondary">Expected JSON (left)</span><code class="tip-json border rounded bg-body-tertiary p-2">@example.Left</code></span>
+                        <span><span class="d-block text-body-secondary">Response JSON (right)</span><code class="tip-json border rounded bg-body-tertiary p-2">@example.Right</code></span>
+                    </span>
+                    <span class="badge my-2 @example.BadgeClass">@example.Badge</span>
+                    @if (example.Note is not null)
+                    {
+                        <span class="d-block mb-2">@example.Note</span>
+                    }
+                </span>
             }
         </span>
     </span>;
@@ -683,7 +727,9 @@ else if (result is not null)
         {
             var rules = new List<string>();
             if (normalized) rules.Add("Normalized");
-            if (fuzzy) rules.Add($"Fuzzy {(fuzzyThreshold ?? 0).ToString("0.##", CultureInfo.InvariantCulture)}");
+            if (fuzzy) rules.Add(FuzzyThresholdError is null
+                ? $"Fuzzy {fuzzyThreshold!.Value.ToString("G", CultureInfo.InvariantCulture)}"
+                : "Fuzzy (invalid threshold)");
             if (numeric) rules.Add("Numeric");
             var parts = new[]
             {

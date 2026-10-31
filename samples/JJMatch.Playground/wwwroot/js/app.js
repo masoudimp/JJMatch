@@ -58,6 +58,7 @@
         if (top + height > window.innerHeight - margin && anchor.top - gap - height >= margin) {
             top = anchor.top - gap - height;
         }
+        top = Math.max(margin, Math.min(top, window.innerHeight - height - margin));
         body.style.left = left + "px";
         body.style.top = top + "px";
     }
