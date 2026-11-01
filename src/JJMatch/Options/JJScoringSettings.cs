@@ -20,7 +20,9 @@ namespace JJMatch;
 /// <para>
 /// A weight of <see cref="MaxWeight"/> makes a lost node count exactly as it does under Standard scoring, and a lower
 /// weight counts it proportionally less, so a Weighted score is never below the Standard one. The weights are ignored
-/// under <see cref="JJScoringMode.Standard"/>. They never change which nodes pair or which differences are reported.
+/// under <see cref="JJScoringMode.Standard"/>. Under Weighted scoring they break otherwise equal assignment ties
+/// by minimizing the total weighted unmatched mass, including missing and added subtrees. Such ties can change
+/// which nodes pair and where differences are reported, but never the maximum matched node count.
 /// </para>
 /// </remarks>
 public sealed class JJScoringSettings

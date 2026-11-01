@@ -455,7 +455,15 @@ internal static class StructureMatcher
                 levels[0]![leftIndex, rightIndex] = outcome.Differences;
                 levels[1]![leftIndex, rightIndex] = outcome.TypeMismatches;
                 levels[2]![leftIndex, rightIndex] = -outcome.CaseOnly;
-                if (levels[3] is { } weighted) weighted[leftIndex, rightIndex] = outcome.Weighted;
+                if (levels[3] is { } weighted)
+                {
+                    // Start from the constant cost of leaving every subtree unpaired. A pair replaces
+                    // its Missing and Added costs with its own differences. Including that saving makes
+                    // this tie level agree with the final score even when group sizes differ.
+                    weighted[leftIndex, rightIndex] = outcome.Weighted
+                        - (long)rules.Scoring!.MissingWeight * leftSizes[leftIndex]
+                        - (long)rules.Scoring.AddedWeight * rightSizes[rightIndex];
+                }
             }
         }
         var partners = SolveAssignment(matchedCounts, sameShape, levels, rules.Budget);
