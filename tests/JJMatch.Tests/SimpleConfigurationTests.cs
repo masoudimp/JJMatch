@@ -172,4 +172,32 @@ public class SimpleConfigurationTests
         Assert.Throws<InvalidOperationException>(() => JJMatcher.Match(input, input,
             settings: new JJMatchSettings { Limits = { MaxNodes = 1 } }));
     }
+
+    [Fact]
+    public void Configuration_round_trips_preserve_results_across_rule_combinations()
+    {
+        var left = Input("Left");
+        var right = Input("Right");
+        foreach (var scope in Enum.GetValues<JJComparisonMode>())
+        foreach (var arrays in Enum.GetValues<JJArrayMatchingMode>())
+        foreach (var names in Enum.GetValues<JJPropertyNameMatchingMode>())
+        foreach (var scoring in Enum.GetValues<JJScoringMode>())
+        for (var flags = 0; flags < 8; flags++)
+        {
+            var settings = new JJMatchSettings
+            {
+                Mode = scope, ArrayMode = arrays, PropertyNameMode = names,
+                ValueMode = (JJValueMatchingMode)flags, FuzzyThreshold = 0.56,
+                Scoring = { Mode = scoring, MissingWeight = 10, AddedWeight = 1 }
+            };
+            var original = JJMatcher.Match(left, right, settings: settings);
+            var restored = JJMatcher.Match(left, right, settings: JJMatchSettings.FromJson(settings.ToJson()));
+            Assert.Equal(original.IsMatch, restored.IsMatch);
+            Assert.Equal(original.Score, restored.Score);
+            Assert.Equal(original.Diagnostics.StructuralScore, restored.Diagnostics.StructuralScore);
+            Assert.Equal(original.Diagnostics.ValueScore, restored.Diagnostics.ValueScore);
+            Assert.Equal(original.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath, d.ScoreWeight)),
+                restored.Differences.Select(d => (d.Kind, d.LeftPath, d.RightPath, d.ScoreWeight)));
+        }
+    }
 }

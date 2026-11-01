@@ -582,6 +582,12 @@
     "last": [{ "last": [{ "last": [{ "last": "End " }] }] }]
   },
   "publicApi": {
+    "weightedAssignments": {
+      "arrays": [{"x":"a"}],
+      "duplicates": {"p":{"x":"a"}},
+      "caseNames": {"NAME":0},
+      "caseNamesReordered": {"NAME":0}
+    },
     "guideScenario": {
       "orderId": "ORD-1042",
       "currency": "USD",

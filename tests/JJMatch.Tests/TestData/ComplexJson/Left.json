@@ -831,6 +831,12 @@
     }
   ],
   "publicApi": {
+    "weightedAssignments": {
+      "arrays": [{"x":[1,2]},{"x":1}],
+      "duplicates": {"p":{"x":[1,2]},"p":{"x":1}},
+      "caseNames": {"name":[1,2]," name ":1},
+      "caseNamesReordered": {" name ":1,"name":[1,2]}
+    },
     "guideScenario": {
       "orderId": "ORD-1042",
       "currency": "USD",

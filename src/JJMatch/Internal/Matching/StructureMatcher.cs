@@ -208,31 +208,56 @@ internal static class StructureMatcher
         }
 
         // Orphans on each side (no exact-name partner and no exact-name counterpart at all on the other side)
-        // that fold to the same key under Normalized are paired by that key, earliest left with earliest right.
+        // that fold to the same key under Normalized are paired by that key. Weighted scoring first selects
+        // which surplus occurrences to leave out; equally good selections and the pairs follow document order.
         var caseMatchRight = new int[left.Children.Count];
         for (var index = 0; index < caseMatchRight.Length; index++) caseMatchRight[index] = -1;
-        var rightOrphansByKey = new Dictionary<string, Queue<int>>(NameComparer(JJPropertyNameMatchingMode.Normalized));
+        var rightOrphansByKey = new Dictionary<string, List<int>>(NameComparer(JJPropertyNameMatchingMode.Normalized));
         for (var index = 0; index < right.Children.Count; index++)
         {
             var property = right.Children[index];
             if (pairedRight[index] || leftNames.Contains(property.PropertyName!)) continue;
             var key = NameKey(property.PropertyName!, JJPropertyNameMatchingMode.Normalized);
-            if (!rightOrphansByKey.TryGetValue(key, out var queue))
+            if (!rightOrphansByKey.TryGetValue(key, out var indices))
             {
-                queue = new Queue<int>();
-                rightOrphansByKey[key] = queue;
+                indices = new List<int>();
+                rightOrphansByKey[key] = indices;
             }
-            queue.Enqueue(index);
+            indices.Add(index);
         }
+        var leftOrphansByKey = new Dictionary<string, List<int>>(NameComparer(JJPropertyNameMatchingMode.Normalized));
         for (var index = 0; index < left.Children.Count; index++)
         {
             var property = left.Children[index];
             if (partners[index].Right >= 0 || rightNames.Contains(property.PropertyName!)) continue;
             var key = NameKey(property.PropertyName!, JJPropertyNameMatchingMode.Normalized);
-            if (rightOrphansByKey.TryGetValue(key, out var queue) && queue.Count > 0)
+            if (!rightOrphansByKey.ContainsKey(key)) continue;
+            if (!leftOrphansByKey.TryGetValue(key, out var indices))
             {
-                caseMatchRight[index] = queue.Dequeue();
+                indices = new List<int>();
+                leftOrphansByKey[key] = indices;
             }
+            indices.Add(index);
+        }
+        foreach (var group in leftOrphansByKey)
+        {
+            var rightIndices = rightOrphansByKey[group.Key];
+            var count = Math.Min(group.Value.Count, rightIndices.Count);
+            var selectedLeft = SelectOrphans(group.Value, left, count, rules.Scoring?.MissingWeight ?? 0);
+            var selectedRight = SelectOrphans(rightIndices, right, count, rules.Scoring?.AddedWeight ?? 0);
+            for (var index = 0; index < count; index++) caseMatchRight[selectedLeft[index]] = selectedRight[index];
+        }
+
+        List<int> SelectOrphans(List<int> indices, JsonStructureNode parent, int count, int surplusWeight)
+        {
+            if (indices.Count == count || rules.Scoring is not { } scoring
+                || scoring.PropertyNameCaseMismatchWeight == surplusWeight) return indices;
+            // Every case-name pair contributes the sum of its two subtree sizes, with no comparison below it.
+            // Selection is therefore independent on each side: replace the surplus cost by the case-name cost.
+            // Stable sorting retains the earliest occurrences at equal cost; report the chosen pairs in order.
+            return indices.OrderBy(index => (long)(scoring.PropertyNameCaseMismatchWeight - surplusWeight)
+                    * rules.Cache.Size(parent.Children[index]))
+                .Take(count).OrderBy(index => index).ToList();
         }
 
         var outcome = default(Outcome);
