@@ -66,7 +66,7 @@ To verify the packed artifact locally (requires both runtimes), use a fresh pack
 
 ```sh
 dotnet pack src/JJMatch -c Release -o artifacts
-dotnet restore tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj --source ./artifacts --source https://api.nuget.org/v3/index.json --packages ./artifacts/consumer-cache
+dotnet restore tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj --configfile tests/JJMatch.PackageSmoke/NuGet.Config --packages ./artifacts/consumer-cache
 dotnet run --project tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj -c Release -f net8.0 --no-restore
 dotnet run --project tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj -c Release -f net10.0 --no-restore
 ```
