@@ -36,6 +36,8 @@ jobs:
           PACKAGE_VERSION: ${{ inputs.version }}
           DOTNET_ROLL_FORWARD: LatestPatch
           NUGET_PACKAGES: ${{ runner.temp }}/jjmatch-consumer-packages
+          # Git Bash must not rewrite the NuGet URL inside dotnet's source arguments.
+          MSYS_NO_PATHCONV: 1
         run: |
           dotnet restore tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj --source "$GITHUB_WORKSPACE/artifacts" --source https://api.nuget.org/v3/index.json -p:PackageVersion="$PACKAGE_VERSION"
           dotnet run --project tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj -c Release -f net8.0 --no-restore -p:PackageVersion="$PACKAGE_VERSION"
