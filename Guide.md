@@ -95,7 +95,7 @@ settings.Scoring.MissingWeight = 10;
 settings.Scoring.AddedWeight = 3;
 ```
 
-Weights change the score, never `IsMatch` or which differences are reported. Different Missing and Added weights make the score directional. All six difference weights remain configurable, including property-name and value normalization differences. See [scoring](Docs/Scoring.md) for the formula.
+Weights change the score and can select different pairings when matches are otherwise tied; `IsMatch` is unchanged. Different Missing and Added weights make the score directional. All six difference weights remain configurable, including property-name and value normalization differences. See [scoring](https://github.com/masoudimp/JJMatch/blob/main/Docs/Scoring.md) for the formula.
 
 `Limits` also exposes `MaxInputLength`, `MaxNodes`, and `MaxWork`. Defaults remain 512 levels, 1,000,000 UTF-16 characters per input, 100,000 nodes, 128 occurrences per assignment, and 10,000,000 work units. Assignment size cannot exceed 256. Limits fail comparison rather than returning approximate results. Very high depth can exhaust the stack.
 
@@ -119,4 +119,4 @@ Existing calls, flags, property names, enum values and defaults continue to work
 
 An explicitly supplied legacy `options` argument overrides `settings.Mode`, even when it is `All`. `IncludeStructuralScore = false` can independently suppress structural diagnostics. In C#, old and new value/limit setters share the same state; later assignments affect the same settings. In JSON, use either legacy `ValueMode` or the new string/number properties, and either top-level limits or `Limits`; likewise use either `ArrayComparison` or `ArrayMode`. Mixing these forms is rejected to avoid order-dependent configuration.
 
-The [detailed reference](Docs/Configuration.md) preserves the worked order example, exact score tables, old API examples and difference semantics. Try the [Playground](https://masoudimp.github.io/JJMatch/) for presets, custom rules and minimal C#/JSON exports.
+The [detailed reference](https://github.com/masoudimp/JJMatch/blob/main/Docs/Configuration.md) preserves the worked order example, exact score tables, old API examples and difference semantics. Try the [Playground](https://masoudimp.github.io/JJMatch/) for presets, custom rules and minimal C#/JSON exports.

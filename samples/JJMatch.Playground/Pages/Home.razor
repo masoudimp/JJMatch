@@ -503,7 +503,7 @@ else if (result is not null)
     private static readonly string ModeExampleRight = Object("\"name\": \"Ann\",\n  \"age\": \"30\"");
 
     private const string StandardTipText = "Every unmatched node counts at full cost. Custom weights are ignored. The score measures matched content, so a missing subtree can count more than one changed value.";
-    private const string WeightedTipText = "Choose how strongly each kind of difference lowers the score: 1 is the smallest penalty and 10 is the Standard penalty. Weights change only the score, not which differences are found.";
+    private const string WeightedTipText = "Choose how strongly each kind of difference lowers the score: 1 is the smallest penalty and 10 is the Standard penalty. Weights can change otherwise tied pairings and their reported differences, but never whether the documents match.";
 
     private TipContent FuzzyThresholdTip
     {
