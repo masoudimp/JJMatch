@@ -1,0 +1,4 @@
+# These fixtures contain escaped copies/excerpts of their own text. Keep checkout
+# bytes consistent across platforms so exact synchronization tests remain valid.
+tests/JJMatch.Tests/TestData/ComplexJson/*.json text eol=lf
+tests/JJMatch.Tests/TestData/Stringified/*.txt text eol=lf

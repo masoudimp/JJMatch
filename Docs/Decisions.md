@@ -1,5 +1,14 @@
 # JJMatch Decisions
 
+## Preview release validation and bounded depth — 2026-11-01
+
+- Prepare `0.1.0-preview.1`; no publication is performed by this change.
+- CI now validates pull requests and main pushes on Linux, Windows and macOS. A shared workflow runs both test targets, packs, restores the package into an isolated consumer cache and runs the consumer on native .NET 8 and 10 (patch roll-forward only). Pages deploys only for main pushes. Tagged releases use the same validation and publish the exact validated Ubuntu artifact after all three platforms pass.
+- The independent assignment oracle now enumerates every partial injection for 5,000 deterministic small matrices and checks all seven objective levels and positional ties, with directed priority-conflict cases.
+- `MaxDepth` now accepts 1–512, retaining the default 512. Values above 512 previously accepted are deliberately rejected before parsing: the implementation uses recursion, and an unbounded parser setting is not a safe public contract. Existing historical statements below about unlimited depth are superseded.
+- The approved fixture pair gains `publicApi.depthLimit`, a string containing 512 nested arrays, with different leaf values. The package consumer exercises matching, scoring and detached paths at 512, and rejection at 511; fixture envelopes remain readable at depth 128 and the TXT counterparts remain synchronized.
+
+
 ## Tied pairings no longer follow element order — 2026-10-31
 
 A property-based probe of the public API found that the differences reported for an array, their kinds and even their number, and the `Weighted` score, could change when the elements of one array were reordered, while the `Standard` score stayed the same. `["x", 1]` against `["X", true]` reported a `ValueCaseMismatch` and a `TypeMismatch`, and `[1, "x"]` against the same right side two `TypeMismatch`es, with the weighted score moving from 41.67 to 33.33. The cause was the tie rule of the group assignment: among pairings matching equally many nodes, with equally many same-shape pairs and pairs, position alone decided, so a group whose candidates all matched nothing was paired by index. This contradicted the README's statement that array element order is ignored.

@@ -1,0 +1,47 @@
+name: Validate package
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        default: 0.1.0-preview.1
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - run: dotnet test tests/JJMatch.Tests -c Release
+      - name: Pack
+        env:
+          PACKAGE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: dotnet pack src/JJMatch -c Release -o artifacts -p:Version="$PACKAGE_VERSION"
+      - name: Test installed package on native runtimes
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ inputs.version }}
+          DOTNET_ROLL_FORWARD: LatestPatch
+          NUGET_PACKAGES: ${{ runner.temp }}/jjmatch-consumer-packages
+        run: |
+          dotnet restore tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj --configfile tests/JJMatch.PackageSmoke/NuGet.Config -p:PackageVersion="$PACKAGE_VERSION"
+          dotnet run --project tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj -c Release -f net8.0 --no-restore -p:PackageVersion="$PACKAGE_VERSION"
+          dotnet run --project tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj -c Release -f net10.0 --no-restore -p:PackageVersion="$PACKAGE_VERSION"
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: packages
+          path: artifacts/*nupkg

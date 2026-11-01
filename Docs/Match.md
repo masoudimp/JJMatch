@@ -111,7 +111,7 @@ Within an object: the left properties in document order, each followed by the di
 - Pairing counts every node as one, under `JJScoringMode.Weighted` too: the facade applies the weights to the differences of this pairing afterwards. The weights only decide among pairings that match equally many nodes, so a pairing that matches fewer nodes but would leave a lighter weighted mass unmatched is not sought.
 - Paths escape what is invisible, not what is confusable: the precomposed and decomposed `café`, or a Latin and a Cyrillic `а`, give paths that look alike and differ only in their code points. Escaping also breaks a sequence apart visually when it holds a format character (a zero-width joiner in an emoji sequence, the tag characters of a flag).
 - The result is not symmetric in its ordering: swapping the arguments swaps the mismatch types, and the positional rule follows the left side. Which occurrences are paired can still differ between two orders of one array only when assignments tie on every level above the positional one, including the differences they report; then the reported paths change, but not the number or the kinds of the differences, nor the weighted mass under Weighted scoring.
-- Recursion depth follows the documents' nesting depth, with no guard; the limitation recorded for `Traverse` in `Docs/Decisions.md` applies here too.
+- Public calls bound parsed nesting depth to 512 through settings validation; internal unbudgeted callers remain responsible for depth.
 - A string that could not be decoded (`Value` `null`) is a `String` like any other.
 
 ## Tests
@@ -172,3 +172,5 @@ Measured with a short job (.NET 10, macOS, Apple M5) before and after the 2026-1
 
 
 Public configuration also accepts `Mode`, independent `StringComparison` / `NumberComparison`, and nested `Limits`. These map to the existing matching rules; no assignment or score algorithm changes. Explicit legacy options override Mode. `IncludeStructuralScore = false` skips the extra diagnostic comparison. See the current Guide and configuration decision of 2026-10-31.
+
+`Every_assignment_priority_agrees_with_independent_exhaustive_search` checks 5,000 seeded rectangular matrices up to 5×5 against enumeration of all partial injections. Its objective tuple includes matched nodes, identical pairs, pair count, difference count, type mismatches, case-only differences and signed weighted mass, followed by document-order ties. Weighted and Standard cases alternate. Four directed cases make each later priority decide a tie while all subsequent levels favor the losing choice. Existing public pipeline tests separately verify construction of weighted costs including unpaired subtrees.

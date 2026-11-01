@@ -97,7 +97,7 @@ settings.Scoring.AddedWeight = 3;
 
 Weights change the score and can select different pairings when matches are otherwise tied; `IsMatch` is unchanged. Different Missing and Added weights make the score directional. All six difference weights remain configurable, including property-name and value normalization differences. See [scoring](https://github.com/masoudimp/JJMatch/blob/main/Docs/Scoring.md) for the formula.
 
-`Limits` also exposes `MaxInputLength`, `MaxNodes`, and `MaxWork`. Defaults remain 512 levels, 1,000,000 UTF-16 characters per input, 100,000 nodes, 128 occurrences per assignment, and 10,000,000 work units. Assignment size cannot exceed 256. Limits fail comparison rather than returning approximate results. Very high depth can exhaust the stack.
+`Limits` also exposes `MaxInputLength`, `MaxNodes`, and `MaxWork`. Defaults remain 512 levels, 1,000,000 UTF-16 characters per input, 100,000 nodes, 128 occurrences per assignment, and 10,000,000 work units. Assignment size cannot exceed 256. Limits fail comparison rather than returning approximate results. Depth must be between 1 and 512; larger settings are rejected before parsing to bound recursive processing.
 
 `result.Diagnostics.StructuralScore` is an independent structure-only score, or null when disabled. `Diagnostics.ElapsedMilliseconds` includes parsing and reporting. Structural diagnostics stay enabled by default for compatibility. `Diagnostics.ValueScore` is the full score when values participate, retained for compatibility; it is not a separate component to average.
 

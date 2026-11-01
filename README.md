@@ -3,7 +3,7 @@
 Compare two JSON documents in one call. Get a clear match result, useful differences, and a similarity percentage.
 
 ```sh
-dotnet add package JJMatch
+dotnet add package JJMatch --version 0.1.0-preview.1
 ```
 
 ```csharp
@@ -46,7 +46,7 @@ Use `JJMatchSettings.StructureOnly` to ignore primitive values, or `Default` for
 
 Useful for comparing expected and actual API responses, test data, or structured LLM output. Similar JSON does not necessarily mean a factually correct answer.
 
-The package targets **netstandard2.0 and net8.0**. Tests run on .NET 8 and .NET 10; CI covers Windows, macOS and Linux.
+The package targets **netstandard2.0 and net8.0**. Pull requests, main pushes and tagged releases validate on Windows, macOS and Linux, with tests on .NET 8 and .NET 10 and a separate consumer smoke test of the packed NuGet package. The current version is `0.1.0-preview.1`.
 
 ## Development
 
@@ -61,3 +61,14 @@ Install both .NET 8 and .NET 10 runtimes to run both test targets. Benchmarks li
 Design details: [decisions](Docs/Decisions.md), [matching](Docs/Match.md), [value rules](Docs/MatchValues.md), and the [historical technical review](Docs/TechnicalReview.md).
 
 Licensed under [MIT](LICENSE).
+
+To verify the packed artifact locally (requires both runtimes), use a fresh package cache:
+
+```sh
+dotnet pack src/JJMatch -c Release -o artifacts
+dotnet restore tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj --configfile tests/JJMatch.PackageSmoke/NuGet.Config --packages ./artifacts/consumer-cache
+dotnet run --project tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj -c Release -f net8.0 --no-restore
+dotnet run --project tests/JJMatch.PackageSmoke/JJMatch.PackageSmoke.proj -c Release -f net10.0 --no-restore
+```
+
+The consumer is intentionally outside the solution and uses `PackageReference`, not a project reference. For another version, pass `-p:PackageVersion=<version>` to restore and run.

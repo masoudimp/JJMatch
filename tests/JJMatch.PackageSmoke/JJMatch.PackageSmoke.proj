@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="$(MSBuildSDKsPath)/Microsoft.NET.Sdk/targets/Microsoft.NET.Sdk.CSharp.props" />
+  <PropertyGroup>
+    <LanguageTargets>$(MSBuildToolsPath)/Microsoft.CSharp.targets</LanguageTargets>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PackageVersion Condition="'$(PackageVersion)' == ''">0.1.0-preview.1</PackageVersion>
+  </PropertyGroup>
+  <!-- Standalone .proj prevents IDE solution discovery/restore before the package exists. -->
+  <ItemGroup>
+    <PackageReference Include="JJMatch" Version="[$(PackageVersion)]" />
+    <None Include="../JJMatch.Tests/TestData/ComplexJson/*.json" Link="TestData/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

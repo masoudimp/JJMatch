@@ -1,32 +1,24 @@
 name: CI
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
-      - run: dotnet test -c Release
-      - run: dotnet pack src/JJMatch -c Release -o artifacts
+    uses: ./.github/workflows/validate.yml
 
   pages-build:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -46,6 +38,9 @@ jobs:
           path: publish/wwwroot
 
   pages-deploy:
+    permissions:
+      pages: write
+      id-token: write
     needs: pages-build
     runs-on: ubuntu-latest
     environment:
