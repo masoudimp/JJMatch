@@ -122,8 +122,7 @@ public sealed partial class JJMatchSettings
     }
 
     /// <summary>
-    /// Maximum container depth of each parsed document, at least 1, with no upper bound. Defaults to 512. The comparison
-    /// recurses once per level, so a very deep document can overflow the stack when the depth allows it.
+    /// Maximum container depth of each parsed document, from 1 to 512. Defaults to 512.
     /// </summary>
     [EditorBrowsable(EditorBrowsableState.Advanced)]
     public int MaxDepth { get => Limits.MaxDepth; set => Limits.MaxDepth = value; }
@@ -290,7 +289,7 @@ public sealed partial class JJMatchSettings
         if (copy.IgnoredPropertyPrefix is { Length: 0 }) throw new ArgumentOutOfRangeException(nameof(IgnoredPropertyPrefix));
         // Written as a double negative so that NaN is rejected too.
         if (!(copy.FuzzyThreshold >= 0 && copy.FuzzyThreshold <= 1)) throw new ArgumentOutOfRangeException(nameof(FuzzyThreshold));
-        if (copy.MaxDepth < 1) throw new ArgumentOutOfRangeException(nameof(MaxDepth));
+        if (copy.MaxDepth < 1 || copy.MaxDepth > 512) throw new ArgumentOutOfRangeException(nameof(MaxDepth));
         if (copy.MaxInputLength < 1) throw new ArgumentOutOfRangeException(nameof(MaxInputLength));
         if (copy.MaxNodes < 1 || copy.MaxNodes > 1_000_000) throw new ArgumentOutOfRangeException(nameof(MaxNodes));
         if (copy.MaxAssignmentSize < 1 || copy.MaxAssignmentSize > 256) throw new ArgumentOutOfRangeException(nameof(MaxAssignmentSize));

@@ -584,9 +584,11 @@ public class JJMatcherIntegrationTests
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { IgnoredPropertyPrefix = "" }));
         Assert.Throws<ArgumentException>(() => JJMatchSettings.FromJson("""{ "IgnoredPropertyPrefix": 1 }"""));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 0 }));
-        // The depth has no upper bound: the parser's former cap of 128 is accepted and above.
+        // Keep the default depth, but reject values beyond the supported recursive depth.
         Assert.True(JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 129 }).IsMatch);
-        Assert.True(JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = int.MaxValue }).IsMatch);
+        Assert.True(JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 512 }).IsMatch);
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = 513 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxDepth = int.MaxValue }));
         Assert.Throws<ArgumentOutOfRangeException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { ArrayMode = (JJArrayMatchingMode)2 }));
         Assert.Throws<InvalidOperationException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxInputLength = 1 }));
         Assert.Throws<InvalidOperationException>(() => JJMatcher.Match(valid, valid, settings: new JJMatchSettings { MaxNodes = 1 }));

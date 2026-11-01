@@ -12,7 +12,7 @@ Captures the structure and the primitive values of a document in one pass, in a 
 
 - `JsonElement element`: the element to walk, of any value kind. `default(JsonElement)`, whose kind is `Undefined`, is accepted too.
 - `string? propertyName`: the name the element is held under. Callers leave it out; the recursion supplies it for object properties.
-- Optional internal `ComparisonBudget`: counts every visited node and polls cancellation. Public Match supplies it; parsing depth follows `JJMatchSettings.MaxDepth`, which has no upper bound. Existing internal callers may omit it.
+- Optional internal `ComparisonBudget`: counts every visited node and polls cancellation. Public Match supplies it; parsing depth follows `JJMatchSettings.MaxDepth`, which accepts 1–512. Existing internal callers may omit it.
 - Optional `int stringifiedDepth`: how many levels deep a string at this element may decode to. `0`, the default, decodes nothing. Public Match passes `JJMatchSettings.Limits.MaxDepth` when `DecodeStringifiedJson` is true (the default), or zero when it is false; each object or array level passes one less to its children.
 - Optional `string? ignoredPrefix`: a property whose decoded name starts with it is left out, with its whole subtree, wherever it occurs. `null`, the default, leaves every property in. Public Match passes `JJMatchSettings.IgnoredPropertyPrefix`, validated there to be null or non-empty; this internal parameter is not validated, and an empty string would leave out every property.
 - Returns the `JsonStructureNode` for the element. `JsonStructureNode.cs` lives in this folder.
