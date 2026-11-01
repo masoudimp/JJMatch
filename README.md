@@ -1,5 +1,11 @@
 # JJMatch
 
+## [Try JJMatch Playground →](https://masoudimp.github.io/JJMatch/)
+
+Compare your own JSON in the browser, explore every setting, and copy the equivalent `JJMatcher.Match` call and `JJSetting.json`.
+
+## Get started
+
 Compare two JSON documents in one call. Get a clear match result, useful differences, and a similarity percentage.
 
 ```sh
@@ -31,8 +37,6 @@ var result = JJMatcher.Match(expectedJson, actualJson, settings: settings);
 ```
 
 Use `JJMatchSettings.StructureOnly` to ignore primitive values, or `Default` for the original exact-value behavior. Each preset returns a fresh object. String and number rules are independent; advanced scoring, resource limits and diagnostics remain available. Save minimal configuration with `settings.ToJson()` and reload it with `JJMatchSettings.FromJson(...)`.
-
-**Try it in the browser:** the [JJMatch Playground](https://masoudimp.github.io/JJMatch/) runs the library on your own JSON, lets you switch every setting, and shows the equivalent `JJMatcher.Match` call and `JJSetting.json`.
 
 **Read the [guide](Guide.md)** for the settings, how the score is computed, and what each difference means.
 
